@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.shadow-primary {
+    box-shadow: 0px 0px 25px 1px rgba(0, 246, 98, 0.2);
+}
+
+body {
+    background-color: #191d20;
+    overflow: hidden;
+}
