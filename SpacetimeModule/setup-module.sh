@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
+
 spacetime publish englishauction --clear-database
 sleep 3
 spacetime call englishauction init_tournament

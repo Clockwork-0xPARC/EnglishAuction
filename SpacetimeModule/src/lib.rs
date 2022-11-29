@@ -45,6 +45,7 @@ pub struct Player {
     #[unique]
     id: Hash,
     points: u32,
+    name: String,
 }
 
 #[spacetimedb(table)]
@@ -153,13 +154,19 @@ pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
 /// Called by players to register themself for the round. The tournament must be in the setup
 /// stage in order for this to be successful.
 #[spacetimedb(reducer)]
-pub fn register_player(sender: Hash, _timestamp: u64) {
-    let num_players: u32 = Player::iter().count() as u32;
-    if num_players < MAX_PLAYERS {
-        Player::insert(Player { id: sender, points: 100 });
+pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
+    if name.len() == 0 {
+        println!("Invalid player name: {}", name);
         return;
     }
-    panic!("Already at max players.");
+
+    let num_players: u32 = Player::iter().count() as u32;
+    if num_players < MAX_PLAYERS {
+        Player::insert(Player { id: sender, points: 100, name});
+        return;
+    }
+
+    println!("Already at max players.");
 }
 
 /// Starts a tournament that either has not been started or is in the finished status.
@@ -168,7 +175,8 @@ pub fn start_tournament(_sender: Hash, timestamp: u64) {
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
     let mut ts = TournamentState::filter_by_version(0).expect("Tournament not yet created.");
     if ts.status != 0 && ts.status != 2 {
-        panic!("Tournament not in setup or complete state.");
+        println!("Tournament not in setup or complete state.");
+        return;
     }
 
     // Start the tournament!
@@ -346,23 +354,28 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
 #[spacetimedb(reducer)]
 pub fn make_bid(sender: Hash, timestamp: u64, auction_index: u32, points: u32) {
     let Some(player) = Player::filter_by_id(sender) else {
-        panic!("Sender is not a player.");
+        println!("Sender is not a player.");
+        return;
     };
     
     if points == 0 {
-        panic!("Must bid at least 1 point.");
+        println!("Must bid at least 1 point.");
+        return;
     }
 
     if points > player.points {
-        panic!("Not enough points.");
+        println!("Not enough points.");
+        return;
     }
 
     let Some(curr_auction_index) = TileAuction::iter().map(|a| a.auction_index).max_by(|a, b| a.cmp(b)) else {
-        panic!("No auction running.");
+        println!("No auction running.");
+        return;
     };
 
     if auction_index != curr_auction_index {
-        panic!("Can only bid for current auction.");
+        println!("Can only bid for current auction.");
+        return;
     }
 
     PlayerBid::insert(PlayerBid {
