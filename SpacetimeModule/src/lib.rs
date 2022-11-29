@@ -128,7 +128,7 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
 #[spacetimedb(reducer)]
 pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
-    if ts.status == 0 {
+    if ts.status != 0 {
         println!("Tournament is not in setup state!");
         panic!();
     }
