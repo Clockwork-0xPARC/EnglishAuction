@@ -1,6 +1,6 @@
 use rand::{SeedableRng, Rng};
 use rand_chacha::ChaCha8Rng;
-use spacetimedb::{spacetimedb, Hash};
+use spacetimedb::{spacetimedb, Hash, println};
 
 const MAX_PLAYERS: u32 = 5;
 const MAX_MATCH_COUNT: u32 = 10;
@@ -125,7 +125,7 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
 
 /// Adds a set of letters to the database. These letters must all have unique tile ids.
 #[spacetimedb(reducer)]
-pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
+pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
@@ -140,7 +140,7 @@ pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 
 /// Adds a set of words to the database. These words must all be unique.
 #[spacetimedb(reducer)]
-pub fn add_words(sender: Hash, _timestamp: u64, words: Vec<String>) {
+pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
@@ -224,7 +224,8 @@ pub fn reset_round(timestamp: u64) {
     for player in Player::iter() {
         for _ in 0..5 {
             if tiles.len() == 0 {
-                panic!("Ran out of letters");
+                println!("Ran out of letters");
+                return;
             }
             let tile_index = rng.gen_range(0..tiles.len());
             let chosen = tiles.swap_remove(tile_index);
@@ -239,18 +240,21 @@ pub fn reset_round(timestamp: u64) {
     // This match is now started!
 }
 
-#[spacetimedb(reducer, repeat = 1s)]
+#[spacetimedb(reducer, repeat = 1000ms)]
 pub fn run_auction(timestamp: u64, _delta_time: u64) {
     let Some(ts) = TournamentState::filter_by_version(0) else {
         println!("Cannot run auction yet, the tournament has not been initialized!");
         return;
     };
-    if ts.status != 0 {
+    if ts.status != 1 {
         println!("Tournament not in playing state");
         return;
     }
 
-    let mut current_match = MatchState::filter_by_id(ts.current_match_id as u32).unwrap();
+    let Some(mut current_match) = MatchState::filter_by_id(ts.current_match_id as u32) else {
+        println!("No current match!");
+        return;
+    };
 
     // This match is complete and we are likely waiting to setup the next match
     if current_match.status == 1 {
