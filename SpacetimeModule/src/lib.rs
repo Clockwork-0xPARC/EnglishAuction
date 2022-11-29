@@ -246,6 +246,7 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
         println!("Cannot run auction yet, the tournament has not been initialized!");
         return;
     };
+
     if ts.status != 1 {
         println!("Tournament not in playing state");
         return;
