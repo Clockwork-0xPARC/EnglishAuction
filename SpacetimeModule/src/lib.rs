@@ -17,7 +17,10 @@ pub struct TournamentState {
 
     /// The match ID of the current match. during setup when there is no match this value is set
     /// to -1. When the game is actually started this value will be >= 0.
-    current_match_id: i32 // The ID of the current match
+    current_match_id: i32,
+
+    /// The identity of the person who owns this tournament (admin)
+    owner: Hash,
 }
 
 #[spacetimedb(table)]
@@ -104,8 +107,9 @@ struct PlayerBid {
 /// This should be called asap when the module is instantiated. Players cannot do anything
 /// until this setup process is completed.
 #[spacetimedb(reducer)]
-pub fn init_tournament(_sender: Hash, _timestamp: u64) {
-    // TODO: check sender, eventually this will be converted to the module init() function
+pub fn init_tournament(sender: Hash, _timestamp: u64) {
+    //TODO: Eventually this will be converted to the module init() function and we will have to register
+    // the owner separately
 
     if TournamentState::filter_by_version(0).is_some() {
         panic!("Tournament has already been initialized!");
@@ -115,14 +119,16 @@ pub fn init_tournament(_sender: Hash, _timestamp: u64) {
         version: 0,
         status: 0,
         current_match_id: -1,
+        owner: sender,
     });
 }
 
 /// Adds a set of letters to the database. These letters must all have unique tile ids.
 #[spacetimedb(reducer)]
-pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
+pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
+    assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for letter in letters {
         if LetterTile::filter_by_tile_id(letter.tile_id).is_some() {
@@ -134,9 +140,10 @@ pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 
 /// Adds a set of words to the database. These words must all be unique.
 #[spacetimedb(reducer)]
-pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
+pub fn add_words(sender: Hash, _timestamp: u64, words: Vec<String>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
+    assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for word in words {
         Word::insert(Word { word })
@@ -155,6 +162,7 @@ pub fn register_player(sender: Hash, _timestamp: u64) {
     panic!("Already at max players.");
 }
 
+/// Starts a tournament that either has not been started or is in the finished status.
 #[spacetimedb(reducer)]
 pub fn start_tournament(_sender: Hash, timestamp: u64) {
     // TODO: check sender
@@ -322,6 +330,9 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
     });
 }
 
+/// This reducer is called by players to set/increase their bid. Players are allowed to have more
+/// than one bid per round. Players are not allowed to bid for future rounds or rounds that have
+/// already happened.
 #[spacetimedb(reducer)]
 pub fn make_bid(sender: Hash, timestamp: u64, auction_index: u32, points: u32) {
     let Some(player) = Player::filter_by_id(sender) else {
@@ -352,6 +363,8 @@ pub fn make_bid(sender: Hash, timestamp: u64, auction_index: u32, points: u32) {
     });
 }
 
+/// This is called by players to spend their letters to gain points which can then be used
+/// to buy more letters at an auction
 #[spacetimedb(reducer)]
 pub fn redeem_word(sender: Hash, _timestamp: u64, tile_ids: Vec<u32>) {
     let mut word = String::new();
@@ -373,19 +386,20 @@ pub fn redeem_word(sender: Hash, _timestamp: u64, tile_ids: Vec<u32>) {
         PlayerTile::delete_by_tile_id(*tile_id);
     }
 
-    let mut found = false;
-    for w in Word::iter() {
-        if word == w.word {
-            found = true;
-            break;
-        }
-    }
-
-    if !found {
+    if !check_word(&word) {
         panic!("No such word '{}'.", word);
     }
 
     let mut player = Player::filter_by_id(sender).expect("Not a player.");
     player.points += point_value;
     Player::update_by_id(player.id, player);
+}
+
+fn check_word(word: &str) -> bool {
+    for w in Word::iter() {
+        if word == w.word {
+            return true;
+        }
+    }
+    false
 }
