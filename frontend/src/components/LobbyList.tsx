@@ -35,6 +35,19 @@ export const LobbyList = () => {
                     {lobbyState.players.length} / {MAX_PLAYERS}
                 </p>
             </div>
+            <div className="flex flex-col mt-4">
+                {lobbyState.players.map((player, index) => (
+                    <div className="mb-4">
+                        <h3 className="font-bold">Player {index}</h3>
+                        <p
+                            className="truncate text-yellow-600 mt-2"
+                            key={index}
+                        >
+                            ID: {player.id}
+                        </p>
+                    </div>
+                ))}
+            </div>
             {lobbyState.players.length === 0 && (
                 <p className="text-center tracking-wide uppercase text-faint mt-12 font-medium">
                     Unavailable

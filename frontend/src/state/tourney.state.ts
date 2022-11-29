@@ -9,7 +9,7 @@ export const tourney_state = atom<
     key: 'tourney_state',
     default: {
         version: -1,
-        status: 1,
+        status: -1,
         current_match_id: -1
     }
 });
