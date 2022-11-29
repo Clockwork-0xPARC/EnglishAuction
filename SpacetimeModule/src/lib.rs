@@ -248,7 +248,7 @@ pub fn reset_round(timestamp: u64) {
     // This match is now started!
 }
 
-#[spacetimedb(reducer, repeat = 1000ms)]
+#[spacetimedb(reducer, repeat = 1s)]
 pub fn run_auction(timestamp: u64, _delta_time: u64) {
     let Some(ts) = TournamentState::filter_by_version(0) else {
         println!("Cannot run auction yet, the tournament has not been initialized!");
