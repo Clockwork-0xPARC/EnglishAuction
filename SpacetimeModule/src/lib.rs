@@ -125,7 +125,7 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
 
 /// Adds a set of letters to the database. These letters must all have unique tile ids.
 #[spacetimedb(reducer)]
-pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
+pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
@@ -140,7 +140,7 @@ pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 
 /// Adds a set of words to the database. These words must all be unique.
 #[spacetimedb(reducer)]
-pub fn add_words(sender: Hash, _timestamp: u64, words: Vec<String>) {
+pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
