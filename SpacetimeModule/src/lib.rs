@@ -157,7 +157,7 @@ pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
 pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
     if name.len() == 0 {
         println!("Invalid player name: {}", name);
-        return;
+        panic!();
     }
 
     let num_players: u32 = Player::iter().count() as u32;
@@ -167,6 +167,7 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
     }
 
     println!("Already at max players.");
+    panic!();
 }
 
 /// Starts a tournament that either has not been started or is in the finished status.
@@ -176,7 +177,7 @@ pub fn start_tournament(_sender: Hash, timestamp: u64) {
     let mut ts = TournamentState::filter_by_version(0).expect("Tournament not yet created.");
     if ts.status != 0 && ts.status != 2 {
         println!("Tournament not in setup or complete state.");
-        return;
+        panic!();
     }
 
     // Start the tournament!
@@ -233,7 +234,7 @@ pub fn reset_round(timestamp: u64) {
         for _ in 0..5 {
             if tiles.len() == 0 {
                 println!("Ran out of letters");
-                return;
+                panic!();
             }
             let tile_index = rng.gen_range(0..tiles.len());
             let chosen = tiles.swap_remove(tile_index);
@@ -252,17 +253,17 @@ pub fn reset_round(timestamp: u64) {
 pub fn run_auction(timestamp: u64, _delta_time: u64) {
     let Some(ts) = TournamentState::filter_by_version(0) else {
         println!("Cannot run auction yet, the tournament has not been initialized!");
-        return;
+        panic!();
     };
 
     if ts.status != 1 {
         println!("Tournament not in playing state");
-        return;
+        panic!();
     }
 
     let Some(mut current_match) = MatchState::filter_by_id(ts.current_match_id as u32) else {
         println!("No current match!");
-        return;
+        panic!();
     };
 
     // This match is complete and we are likely waiting to setup the next match
@@ -355,27 +356,27 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
 pub fn make_bid(sender: Hash, timestamp: u64, auction_index: u32, points: u32) {
     let Some(player) = Player::filter_by_id(sender) else {
         println!("Sender is not a player.");
-        return;
+        panic!();
     };
     
     if points == 0 {
         println!("Must bid at least 1 point.");
-        return;
+        panic!();
     }
 
     if points > player.points {
         println!("Not enough points.");
-        return;
+        panic!();
     }
 
     let Some(curr_auction_index) = TileAuction::iter().map(|a| a.auction_index).max_by(|a, b| a.cmp(b)) else {
         println!("No auction running.");
-        return;
+        panic!();
     };
 
     if auction_index != curr_auction_index {
         println!("Can only bid for current auction.");
-        return;
+        panic!();
     }
 
     PlayerBid::insert(PlayerBid {
