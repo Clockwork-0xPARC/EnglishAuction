@@ -128,7 +128,7 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
 pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
-    assert!(sender.eq(&ts.owner), "You are not the admin user!");
+    // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for letter in letters {
         if LetterTile::filter_by_tile_id(letter.tile_id).is_some() {
@@ -143,7 +143,7 @@ pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 pub fn add_words(sender: Hash, _timestamp: u64, words: Vec<String>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
     assert_eq!(ts.status, 0, "Tournament is not in setup state!");
-    assert!(sender.eq(&ts.owner), "You are not the admin user!");
+    // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for word in words {
         Word::insert(Word { word })
@@ -165,8 +165,7 @@ pub fn register_player(sender: Hash, _timestamp: u64) {
 /// Starts a tournament that either has not been started or is in the finished status.
 #[spacetimedb(reducer)]
 pub fn start_tournament(_sender: Hash, timestamp: u64) {
-    // TODO: check sender
-
+    // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
     let mut ts = TournamentState::filter_by_version(0).expect("Tournament not yet created.");
     if ts.status != 0 && ts.status != 2 {
         panic!("Tournament not in setup or complete state.");
@@ -242,8 +241,14 @@ pub fn reset_round(timestamp: u64) {
 
 #[spacetimedb(reducer, repeat = 1s)]
 pub fn run_auction(timestamp: u64, _delta_time: u64) {
-    let ts = TournamentState::filter_by_version(0).expect("Cannot run auction yet, the tournament has not been initialized!");
-    assert_eq!(ts.status, 1, "Tournament not in playing state");
+    let Some(ts) = TournamentState::filter_by_version(0) else {
+        println!("Cannot run auction yet, the tournament has not been initialized!");
+        return;
+    };
+    if ts.status != 0 {
+        println!("Tournament not in playing state");
+        return;
+    }
 
     let mut current_match = MatchState::filter_by_id(ts.current_match_id as u32).unwrap();
 
