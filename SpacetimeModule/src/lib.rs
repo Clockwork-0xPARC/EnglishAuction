@@ -128,12 +128,16 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
 #[spacetimedb(reducer)]
 pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
-    assert_eq!(ts.status, 0, "Tournament is not in setup state!");
+    if ts.status == 0 {
+        println!("Tournament is not in setup state!");
+        panic!();
+    }
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for letter in letters {
         if LetterTile::filter_by_tile_id(letter.tile_id).is_some() {
-            panic!("Tile added twice: {}", letter.tile_id);
+            println!("Tile added twice: {}", letter.tile_id);
+            panic!();
         }
         LetterTile::insert(letter);
     }
@@ -143,7 +147,10 @@ pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 #[spacetimedb(reducer)]
 pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
-    assert_eq!(ts.status, 0, "Tournament is not in setup state!");
+    if ts.status != 0 {
+        println!("Tournament is not in setup state!");
+        panic!();
+    }
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for word in words {
