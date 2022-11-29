@@ -1,16 +1,35 @@
 use rand::{SeedableRng, Rng};
 use rand_chacha::ChaCha8Rng;
-use spacetimedb::{spacetimedb, println, Hash};
+use spacetimedb::{spacetimedb, Hash};
 
 const MAX_PLAYERS: u32 = 5;
+const MAX_MATCH_COUNT: u32 = 10;
 
 #[spacetimedb(table)]
 pub struct TournamentState {
     #[unique]
-    version: u32, // Should always be zero?
-    status: u32, // 0 = adding_words, 1 = registering players, 2 = waiting, 3 = playing, 4 = finished
-    curr_match_index: u32,
-    skip_one_round: bool,
+    version: u32, // The ID of this match
+
+    /// 0 = setup stage: adding words, adding letters, registering players, etc.
+    /// 1 = playing rounds
+    /// 2 = tournament is done and a winner has been picked
+    status: u32,
+
+    /// The match ID of the current match. during setup when there is no match this value is set
+    /// to -1. When the game is actually started this value will be >= 0.
+    current_match_id: i32 // The ID of the current match
+}
+
+#[spacetimedb(table)]
+pub struct MatchState {
+    #[unique]
+    id: u32, // The ID of this match
+
+    /// 0 = playing
+    /// 1 = finished
+    status: u32,
+    skipped_first_round: bool, // Has the first round been skipped yet? (allows for initial bets)
+    is_last_round: bool, // Whether or not the current round is the final auction round
 }
 
 #[spacetimedb(table)]
@@ -27,19 +46,13 @@ pub struct Player {
 
 #[spacetimedb(table)]
 pub struct PlayerTile {
-    player_id: Hash,
     #[unique]
     tile_id: u32,
-}
-
-#[spacetimedb(table)]
-pub struct Match {
-    index: u32,
+    player_id: Hash,
 }
 
 #[spacetimedb(table)]
 pub struct BagTile {
-    match_index: u32,
     #[unique]
     tile_id: u32,
     letter: String,
@@ -88,63 +101,54 @@ struct PlayerBid {
 //     return count;
 // }
 
+/// This should be called asap when the module is instantiated. Players cannot do anything
+/// until this setup process is completed.
 #[spacetimedb(reducer)]
-pub fn init_tournament(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
-    // TODO: check sender
+pub fn init_tournament(_sender: Hash, _timestamp: u64) {
+    // TODO: check sender, eventually this will be converted to the module init() function
 
     if TournamentState::filter_by_version(0).is_some() {
-        panic!("Tournament already initalized");
+        panic!("Tournament has already been initialized!");
     }
 
     TournamentState::insert(TournamentState {
         version: 0,
         status: 0,
-        curr_match_index: 0,
-        skip_one_round: true,
+        current_match_id: -1,
     });
+}
+
+/// Adds a set of letters to the database. These letters must all have unique tile ids.
+#[spacetimedb(reducer)]
+pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
+    let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
+    assert_eq!(ts.status, 0, "Tournament is not in setup state!");
 
     for letter in letters {
+        if LetterTile::filter_by_tile_id(letter.tile_id).is_some() {
+            panic!("Tile added twice: {}", letter.tile_id);
+        }
         LetterTile::insert(letter);
-    }
-
-    for i in 0..10 {
-        Match::insert(Match { index: i });
     }
 }
 
-
+/// Adds a set of words to the database. These words must all be unique.
 #[spacetimedb(reducer)]
-pub fn add_words(sender: Hash, _timestamp: u64, words: Vec<String>, final_words: bool) {
-    // TODO: check sender
-
-    let mut ts = if let Some(ts) = TournamentState::filter_by_version(0) {
-        if ts.status != 0 {
-            panic!("Tournament not adding words.");
-        }
-        ts
-    } else {
-        panic!("Tournament not created.");
-    };
+pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
+    let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
+    assert_eq!(ts.status, 0, "Tournament is not in setup state!");
 
     for word in words {
         Word::insert(Word { word })
     }
-
-    if final_words {
-        ts.status = 1;
-        TournamentState::update_by_version(0, ts);
-    }
 }
 
+/// Called by players to register themself for the round. The tournament must be in the setup
+/// stage in order for this to be successful.
 #[spacetimedb(reducer)]
 pub fn register_player(sender: Hash, _timestamp: u64) {
     let num_players: u32 = Player::iter().count() as u32;
     if num_players < MAX_PLAYERS {
-        if num_players == MAX_PLAYERS - 1 {
-            let mut ts = TournamentState::filter_by_version(0).unwrap();
-            ts.status = 2;
-            TournamentState::update_by_version(0, ts);
-        }
         Player::insert(Player { id: sender, points: 100 });
         return;
     }
@@ -152,25 +156,59 @@ pub fn register_player(sender: Hash, _timestamp: u64) {
 }
 
 #[spacetimedb(reducer)]
-pub fn run_next_match(sender: Hash, timestamp: u64) {
+pub fn start_tournament(_sender: Hash, timestamp: u64) {
     // TODO: check sender
 
-    let mut ts = if let Some(ts) = TournamentState::filter_by_version(0) {
-        if ts.status != 2 {
-            panic!("Tournament not waiting.");
-        }
-        ts
-    } else {
-        panic!("Tournament not created.");
-    };
+    let mut ts = TournamentState::filter_by_version(0).expect("Tournament not yet created.");
+    if ts.status != 0 && ts.status != 2 {
+        panic!("Tournament not in setup or complete state.");
+    }
 
-    ts.status = 3;
-    ts.skip_one_round = true;
-    let match_index = ts.curr_match_index;
+    // Start the tournament!
+    ts.status = 1;
     TournamentState::update_by_version(0, ts);
 
+    // Call reset round to start the game
+    reset_round(timestamp);
+}
+
+/// Called at the start of every round. This will automatically increase the current match id
+/// in the tournament state. If there are no matches remaining it will also end the tournament.
+pub fn reset_round(timestamp: u64) {
+    let mut ts = TournamentState::filter_by_version(0).expect("Cannot reset the round, tournament has not been initialized.");
+    let new_match_id = ts.current_match_id + 1;
+    if new_match_id as u32 > MAX_MATCH_COUNT - 1 {
+        println!("We're done playing for now, thanks for playing!");
+        ts.status = 2;
+        TournamentState::update_by_version(0, ts);
+
+        // TODO: Important: Determine winner here!!
+        return;
+    }
+
+    // Update the current match ID
+    ts.current_match_id = new_match_id;
+    TournamentState::update_by_version(0, ts);
+
+    // Insert new match metadata
+    MatchState::insert(MatchState {
+        id: new_match_id as u32,
+        status: 0,
+        skipped_first_round: false,
+        is_last_round: false,
+    });
+
+    // Reset the BagTile table
+    for tile in BagTile::iter() {
+        BagTile::delete_by_tile_id(tile.tile_id);
+    }
     for tile in LetterTile::iter() {
-        BagTile::insert(BagTile { match_index, tile_id: tile.tile_id, letter: tile.letter });
+        BagTile::insert(BagTile { tile_id: tile.tile_id, letter: tile.letter });
+    }
+
+    // Reset all players letters, they are about to receive new letters
+    for tile in PlayerTile::iter() {
+        PlayerTile::delete_by_tile_id(tile.tile_id);
     }
 
     // Randomly distribute 5 letters to each player
@@ -190,22 +228,36 @@ pub fn run_next_match(sender: Hash, timestamp: u64) {
             });
         }
     }
+
+    // This match is now started!
 }
 
 #[spacetimedb(reducer, repeat = 1s)]
 pub fn run_auction(timestamp: u64, _delta_time: u64) {
-    let mut ts = if let Some(ts) = TournamentState::filter_by_version(0) {
-        if ts.status != 3 {
-            panic!("Tournament not playing.");
-        }
-        ts
-    } else {
-        panic!("Tournament not created.");
-    };
+    let ts = TournamentState::filter_by_version(0).expect("Cannot run auction yet, the tournament has not been initialized!");
+    assert_eq!(ts.status, 1, "Tournament not in playing state");
 
-    if ts.skip_one_round {
-        ts.skip_one_round = false;
-        TournamentState::update_by_version(0, ts);
+    let mut current_match = MatchState::filter_by_id(ts.current_match_id as u32).unwrap();
+
+    // This match is complete and we are likely waiting to setup the next match
+    if current_match.status == 1 {
+        return;
+    }
+
+    // We must skip the first round so that everyone has at least one second to bid
+    if !current_match.skipped_first_round {
+        current_match.skipped_first_round = true;
+        MatchState::update_by_id(current_match.id, current_match);
+        return;
+    }
+
+    // If this is the final round we will determine a round winner and reset the game
+    if current_match.is_last_round {
+        current_match.status = 1;
+        MatchState::update_by_id(current_match.id, current_match);
+
+        // TODO: Assign some match points here to the winner of the match? Maybe wait here for a bit before next round?
+        reset_round(timestamp);
         return;
     }
 
@@ -251,7 +303,9 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
 
     let mut tiles = BagTile::iter().collect::<Vec<_>>();
     if tiles.len() == 0 {
-        // TODO: we're done, stop the match and wrap up.
+        // TODO: we're done, skip one round and let players do their final redeems
+        current_match.is_last_round = true;
+        MatchState::update_by_id(current_match.id, current_match);
         return;
     }
 
