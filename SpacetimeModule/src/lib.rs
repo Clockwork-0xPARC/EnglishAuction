@@ -45,6 +45,7 @@ pub struct Player {
     #[unique]
     id: Hash,
     points: u32,
+    name: String,
 }
 
 #[spacetimedb(table)]
@@ -127,12 +128,16 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
 #[spacetimedb(reducer)]
 pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
-    assert_eq!(ts.status, 0, "Tournament is not in setup state!");
+    if ts.status != 0 {
+        println!("Tournament is not in setup state!");
+        panic!();
+    }
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for letter in letters {
         if LetterTile::filter_by_tile_id(letter.tile_id).is_some() {
-            panic!("Tile added twice: {}", letter.tile_id);
+            println!("Tile added twice: {}", letter.tile_id);
+            panic!();
         }
         LetterTile::insert(letter);
     }
@@ -142,7 +147,10 @@ pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 #[spacetimedb(reducer)]
 pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
     let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
-    assert_eq!(ts.status, 0, "Tournament is not in setup state!");
+    if ts.status != 0 {
+        println!("Tournament is not in setup state!");
+        panic!();
+    }
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
 
     for word in words {
@@ -153,13 +161,20 @@ pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
 /// Called by players to register themself for the round. The tournament must be in the setup
 /// stage in order for this to be successful.
 #[spacetimedb(reducer)]
-pub fn register_player(sender: Hash, _timestamp: u64) {
+pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
+    if name.len() == 0 {
+        println!("Invalid player name: {}", name);
+        panic!();
+    }
+
     let num_players: u32 = Player::iter().count() as u32;
     if num_players < MAX_PLAYERS {
-        Player::insert(Player { id: sender, points: 100 });
+        Player::insert(Player { id: sender, points: 100, name});
         return;
     }
-    panic!("Already at max players.");
+
+    println!("Already at max players.");
+    panic!();
 }
 
 /// Starts a tournament that either has not been started or is in the finished status.
@@ -168,7 +183,8 @@ pub fn start_tournament(_sender: Hash, timestamp: u64) {
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
     let mut ts = TournamentState::filter_by_version(0).expect("Tournament not yet created.");
     if ts.status != 0 && ts.status != 2 {
-        panic!("Tournament not in setup or complete state.");
+        println!("Tournament not in setup or complete state.");
+        panic!();
     }
 
     // Start the tournament!
@@ -225,7 +241,7 @@ pub fn reset_round(timestamp: u64) {
         for _ in 0..5 {
             if tiles.len() == 0 {
                 println!("Ran out of letters");
-                return;
+                panic!();
             }
             let tile_index = rng.gen_range(0..tiles.len());
             let chosen = tiles.swap_remove(tile_index);
@@ -240,20 +256,21 @@ pub fn reset_round(timestamp: u64) {
     // This match is now started!
 }
 
-#[spacetimedb(reducer, repeat = 1000ms)]
+#[spacetimedb(reducer, repeat = 1s)]
 pub fn run_auction(timestamp: u64, _delta_time: u64) {
     let Some(ts) = TournamentState::filter_by_version(0) else {
         println!("Cannot run auction yet, the tournament has not been initialized!");
-        return;
+        panic!();
     };
+
     if ts.status != 1 {
         println!("Tournament not in playing state");
-        return;
+        panic!();
     }
 
     let Some(mut current_match) = MatchState::filter_by_id(ts.current_match_id as u32) else {
         println!("No current match!");
-        return;
+        panic!();
     };
 
     // This match is complete and we are likely waiting to setup the next match
@@ -345,23 +362,28 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
 #[spacetimedb(reducer)]
 pub fn make_bid(sender: Hash, timestamp: u64, auction_index: u32, points: u32) {
     let Some(player) = Player::filter_by_id(sender) else {
-        panic!("Sender is not a player.");
+        println!("Sender is not a player.");
+        panic!();
     };
     
     if points == 0 {
-        panic!("Must bid at least 1 point.");
+        println!("Must bid at least 1 point.");
+        panic!();
     }
 
     if points > player.points {
-        panic!("Not enough points.");
+        println!("Not enough points.");
+        panic!();
     }
 
     let Some(curr_auction_index) = TileAuction::iter().map(|a| a.auction_index).max_by(|a, b| a.cmp(b)) else {
-        panic!("No auction running.");
+        println!("No auction running.");
+        panic!();
     };
 
     if auction_index != curr_auction_index {
-        panic!("Can only bid for current auction.");
+        println!("Can only bid for current auction.");
+        panic!();
     }
 
     PlayerBid::insert(PlayerBid {
