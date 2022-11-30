@@ -5,7 +5,7 @@ export const Scoreboard = () => {
     const [lobbyState, setLobbyState] = useRecoilState(lobby_state);
 
     return (
-        <div className="h-2/5 mt-8 bg-card-color w-1/4 p-4 rounded-lg shadow-2xl">
+        <div className="h-2/5 mt-8 bg-card-color p-4 rounded-lg shadow-2xl">
             <h2 className="text-lg text-center font-bold tracking-widest uppercase text-primary">
                 Scoreboard
             </h2>
@@ -16,7 +16,10 @@ export const Scoreboard = () => {
             )}
             <div className="flex flex-col mt-4">
                 {lobbyState.players.map((player, index) => (
-                    <div className="mb-4 flex justify-between items-center">
+                    <div
+                        className="mb-4 flex justify-between items-center"
+                        key={index}
+                    >
                         <h3 className="font-bold">Player {index}</h3>
                         <p
                             className="truncate text-yellow-600 mt-2"
