@@ -1,0 +1,26 @@
+[package]
+name = "admin-cli"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+clap = { version = "4.0.18", features = ["derive"] }
+reqwest = "0.11.10"
+tokio = { version = "1", features = ["full"] }
+anyhow = { version = "1.0.57", features = ["backtrace"] }
+serde = { version = "1.0.136" , features = ["derive"] }
+serde_json = "1.0"
+toml = "0.5"
+dirs = "4.0"
+tabled = "0.8.0"
+convert_case = "0.6.0"
+wasmtime = { version = "1.0.1", default-features = false, features = ["cranelift"] }
+colored = "2.0.0"
+duct = "0.13.5"
+hex = "0.4.3"
+
+[dev-dependencies]
+insta = { version = "1.21.0", features = ["toml"] }
