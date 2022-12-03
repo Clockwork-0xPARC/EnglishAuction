@@ -89,22 +89,6 @@ struct PlayerBid {
     timestamp: u64,
 }
 
-// fn get_bag_letter_count() -> u32 {
-//     let mut count = 0;
-//     for letter in BagLetter::iter() {
-//         count += letter.count;
-//     }
-//     return count;
-// }
-
-// fn get_letter_count() -> u32 {
-//     let mut count = 0;
-//     for letter in Letter::iter() {
-//         count += letter.count;
-//     }
-//     return count;
-// }
-
 /// This should be called asap when the module is instantiated. Players cannot do anything
 /// until this setup process is completed.
 #[spacetimedb(reducer)]
