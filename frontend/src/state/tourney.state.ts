@@ -1,5 +1,5 @@
 import { atom } from 'recoil';
-import { MatchState, TournamentState } from '../../types/index';
+import { MatchState, TournamentState } from 'english-auction';
 
 export const tourney_state = atom<
     TournamentState & {

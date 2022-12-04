@@ -1,10 +1,16 @@
 {
+  "name": "english-auction",
+  "version": "0.0.1",
+  "description": "A client for use in the EnglishAuction",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "devDependencies": {
     "@types/websocket": "^1.0.5",
     "typescript": "^4.9.3"
   },
   "dependencies": {
-    "rxjs": "^7.5.7",
+    "buffer": "^6.0.3",
     "websocket": "^1.0.34"
   }
 }

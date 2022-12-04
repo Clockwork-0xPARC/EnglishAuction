@@ -1,9 +1,9 @@
 import { atom } from 'recoil';
-import { Player, TileAuction } from '../../types';
+import { TileAuction } from 'english-auction';
 
-export const auction_state = atom<{ bids: TileAuction[] }>({
+export const auction_state = atom<{ auctions: TileAuction[] }>({
     key: 'auction_state',
     default: {
-        bids: []
+        auctions: []
     }
 });

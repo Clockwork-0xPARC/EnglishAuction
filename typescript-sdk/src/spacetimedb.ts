@@ -1,4 +1,4 @@
-import { EventEmitter } from "node:events";
+import { EventEmitter } from "events";
 import { ICloseEvent, w3cwebsocket as WSClient } from 'websocket';
 
 export type SpacetimeDBEvent = {
@@ -16,11 +16,55 @@ class Table {
     public name: string;
     public rows: Map<string, Array<any>>;
     public emitter: EventEmitter;
+    pkCol?: number;
 
-    constructor(name: string) {
+    constructor(name: string, pkCol?: number) {
         this.name = name;
         this.rows = new Map();
         this.emitter = new EventEmitter();
+        this.pkCol = pkCol;
+    }
+
+    applyOperations = (operations: {op: string, row_pk: string, row: any[]}[]) => {
+        if (this.pkCol !== undefined) {
+            const inserts = [];
+            const deleteMap = new Map();
+            for (const op of operations) {
+                if (op.op === "insert") {
+                    inserts.push(op);
+                } else {
+                    deleteMap.set(op.row[this.pkCol], op);
+                }
+            }
+            for (const op of inserts) {
+                const deleteOp = deleteMap.get(op.row[this.pkCol])
+                if (deleteOp) {
+                    this.update(deleteOp.row_pk, op.row_pk, op.row);
+                    deleteMap.delete(op.row[this.pkCol]);
+                } else {
+                    this.insert(op.row_pk, op.row);
+                }
+            }
+            for (const op of deleteMap.values()) {
+                this.delete(op.row_pk);
+            }
+        } else {
+            for (const op of operations) {
+                if (op.op === "insert") {
+                    this.insert(op.row_pk, op.row)
+                } else {
+                    this.delete(op.row_pk)
+                }
+            }
+        }
+
+    }
+    
+    update = (oldPk: string, pk: string, row: Array<any>) => {
+        this.rows.set(pk, row);
+        const oldRow = this.rows.get(oldPk)!;
+        this.rows.delete(oldPk);
+        this.emitter.emit("update", row, oldRow);
     }
 
     insert = (pk: string, row: Array<any>) => {
@@ -43,6 +87,10 @@ class Table {
     onDelete = (cb: (row: Array<any>) => void) => {
         this.emitter.on("delete", cb);
     }
+    
+    onUpdate = (cb: (row: Array<any>, oldRow: Array<any>) => void) => {
+        this.emitter.on("update", cb);
+    }
 }
 
 class Database {
@@ -52,10 +100,10 @@ class Database {
         this.tables = new Map();
     }
 
-    getOrCreateTable = (tableName: string) => {
+    getOrCreateTable = (tableName: string, pkCol?: number) => {
         let table;
         if (!this.tables.has(tableName)) {
-            table = new Table(tableName);
+            table = new Table(tableName, pkCol);
             this.tables.set(tableName, table);
         } else {
             table = this.tables.get(tableName)!;
@@ -71,13 +119,21 @@ export class SpacetimeDBClient {
     public db: Database;
     public emitter: EventEmitter;
 
-    constructor(name_or_address: string) {
+    constructor(name_or_address: string, credentials?: {identity: string, token: string}) {
+        let headers = undefined;
+        if (credentials) {
+            this.identity = credentials.identity;
+            this.token = credentials.token;
+            headers = {
+                "Authorization": `Basic token:${Buffer.from(this.token).toString('base64')}`
+            };
+        }
         this.emitter = new EventEmitter();
         this.ws = new WSClient(
             `ws://localhost:3000/database/subscribe?name_or_address=${name_or_address}`,
             'v1.text.spacetimedb',
             undefined,
-            undefined,
+            headers,
             undefined,
             {
                 maxReceivedFrameSize: 100000000,
@@ -112,13 +168,7 @@ export class SpacetimeDBClient {
                     for (const tableUpdate of tableUpdates) {
                         const tableName = tableUpdate["table_name"];
                         const table = this.db.getOrCreateTable(tableName);
-                        for (const op of tableUpdate["table_row_operations"]) {
-                            if (op["op"] === "insert") {
-                                table.insert(op["row_pk"], op["row"])
-                            } else {
-                                table.delete(op["row_pk"])
-                            }
-                        }
+                        table.applyOperations(tableUpdate["table_row_operations"]);
                     }
                     this.emitter.emit("event", txUpdate['event']);
                 } else if (data['IdentityToken']) {
