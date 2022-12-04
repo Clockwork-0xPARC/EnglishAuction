@@ -15,8 +15,13 @@ export class EAClient {
         this.client = new SpacetimeDBClient("english-auction");
     }
 
-    public registerAsPlayer = (playerName: string) => {
+    public registerAsPlayer = async (playerName: string): Promise<Player> => {
         this.client.call("register_player", [playerName]);
+        return new Promise((resolve, reject) => {
+            this.onRegistered(player => {
+                resolve(player);
+            });
+        });
     }
 
     public makeBid = (auction_index: number, bid: number) => {
@@ -26,9 +31,25 @@ export class EAClient {
     public redeemWord = (tile_ids: number[]) => {
         this.client.call("redeem_word", [tile_ids]);
     }
-
+    
     public onInitialStateSync = (cb: () => void) => {
         this.client.emitter.on("initialStateSync", cb);
+    }
+
+    public awaitInitialStateSync = async (): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            this.onInitialStateSync(() => {
+                resolve();
+            })
+        });
+    }
+
+    public onRegistered = (cb: (player: Player) => void) => {
+        this.onPlayerJoined(p => {
+            if (p.id === this.getCredentials()?.identity) {
+                cb(p);
+            }
+        })
     }
 
     public onTransaction = (cb: (event: SpacetimeDBEvent) => void) => {
@@ -69,11 +90,23 @@ export class EAClient {
     public onPlayerJoined = (cb: (player: Player) => void) => {
         const table = this.client.db.getOrCreateTable("Player");
         table.onInsert((row) => {
+            const identity = Buffer.from(row[0]['data'], 'utf8').toString('hex');
             cb({
-                id: row[0],
+                id: identity,
                 points: row[1],
+                name: row[2],
             });
         })
+    }
+
+    public getCredentials = (): { identity: string, token: string } | undefined => {
+        if (this.client.identity) {
+            return {
+                identity: this.client.identity,
+                token: this.client.token!
+            };
+        }
+        return;
     }
 
     public getTournamentState = () => {
@@ -88,12 +121,53 @@ export class EAClient {
         return null;
     }
 
-    public getMyPoints = (): number => {
+    public getMyPlayer = (): Player | undefined => {
+        const myIdentity = this.getCredentials()?.identity;
+        if (!myIdentity) {
+            return;
+        }
         const table = this.client.db.getOrCreateTable("Player");
         for (const row of table.rows.values()) {
-            console.log(row);
+            const identity = Buffer.from(row[0]['data'], 'utf8').toString('hex');
+            if (identity === myIdentity) {
+                return {
+                    id: identity,
+                    points: row[1],
+                    name: row[2],
+                }
+            }
         }
-        return 0;
+        return;
+    }
+
+    public getTileMap = (): Map<number, LetterTile> => {
+        const table = this.client.db.getOrCreateTable("LetterTile");
+        const tileMap = new Map();
+        for (const row of table.rows.values()) {
+            tileMap.set(row[0], {
+                tile_id: row[0],
+                letter: row[1],
+                point_value: row[2]
+            });
+        }
+        return tileMap;
+    }
+
+    public getMyTiles = (): LetterTile[] => {
+        const tileMap = this.getTileMap();
+        const table = this.client.db.getOrCreateTable("PlayerTile");
+        const tiles: LetterTile[] = [];
+        const myIdentity = this.getCredentials()?.identity;
+        if (!myIdentity) {
+            return tiles;
+        }
+        for (const row of table.rows.values()) {
+            const identity = Buffer.from(row[1]['data'], 'utf8').toString('hex');
+            if (identity === myIdentity) {
+                tiles.push({...tileMap.get(row[0])!});
+            }
+        }
+        return tiles;
     }
 
     public getWords = (): string[] => {
@@ -106,16 +180,64 @@ export class EAClient {
     }
 }
 
-const client = new EAClient();
-client.onInitialStateSync(() => {
-    client.getMyPoints();
-    // console.log(client.client.db.tables.keys());
-    // client.registerAsPlayer("Tyler");
-});
+// Everything below this is part of an example bot that uses EAClient
+const checkWord = (myTiles: LetterTile[], word: string): LetterTile[] | null => {
+    const tilesChosen = [];
+    const myTilesRemaining = [...myTiles];
+    for (const letter of word) {
+        let found = false;
+        for (let i = 0; i < myTilesRemaining.length;) {
+            const tile = myTilesRemaining[i];
+            if (tile.letter == letter) {
+                tilesChosen.push({...tile});
+                myTilesRemaining.splice(i, 1);
+                found = true;
+                break;
+            } else {
+                i++;
+            }
+        }
+        if (!found) {
+            return null;
+        }
+    }
+    return tilesChosen;
+};
 
-client.onTransaction(event => {
-    // console.log(event);
-})
+const findRedeemableWord = (myTiles: LetterTile[], words: string[]): LetterTile[] | null => {
+    for (const word of words) {
+        const result = checkWord(myTiles, word);
+        if (result) {
+            return result;
+        }
+    }
+    return null;
+};
+
+const client = new EAClient();
+client.onInitialStateSync(async () => {
+    await client.registerAsPlayer("Tyler");
+    console.log(client.getCredentials());
+    console.log(client.getMyPlayer());
+    client.onTileAuction(auction => {
+        client.makeBid(auction.auction_index, 1);
+    });
+
+    client.onReceiveTile(tile => {
+        const myTiles = client.getMyTiles();
+        console.log(myTiles);
+        let words = client.getWords();
+        words = words.filter(word => word.length < 4);
+        myTiles.sort((a, b) => a.letter.localeCompare(b.letter));
+        const tiles = findRedeemableWord(myTiles, words);
+        if (!tiles) {
+            return;
+        }
+        console.log("REDEEMING: ", tiles);
+        const tileIds = tiles.map(tile => tile.tile_id);
+        client.redeemWord(tileIds);
+    });
+});
 
 // client.onTransaction((event) => {
 //     console.log(event);
@@ -125,9 +247,6 @@ client.onTransaction(event => {
 //     console.log(ts);
 // })
 
-// client.onReceiveTile((tile) => {
-//     console.log(tile);
-// })
 
 // client.onTileAuction((auction) => {
 //     console.log(auction);

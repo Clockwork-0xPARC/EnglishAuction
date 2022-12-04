@@ -52,8 +52,8 @@ pub fn cli() -> clap::Command {
                 .default_missing_value(".")
                 .help("The path to the english auction repository"))
         .arg(
-            Arg::new("force")
-                .long("force")
+            Arg::new("clear")
+                .long("clear")
                 .required(false)
                 .action(SetTrue)
                 .help("adds --clear-database during publish"))
@@ -63,7 +63,7 @@ pub async fn exec(args: &ArgMatches) -> Result<(), anyhow::Error> {
     let word_file = args.get_one::<PathBuf>("words").unwrap();
     let letter_file = args.get_one::<PathBuf>("letters").unwrap();
     let english_auction_path = args.get_one::<PathBuf>("path").unwrap();
-    let force = args.get_flag("force");
+    let clear = args.get_flag("clear");
 
     let word_list: Vec<String> = serde_json::from_str(read_to_string(word_file)?.as_ref()).unwrap();
     let letter_list: Vec<TileJson> = serde_json::from_str(read_to_string(letter_file)?.as_ref()).unwrap();
@@ -81,7 +81,7 @@ pub async fn exec(args: &ArgMatches) -> Result<(), anyhow::Error> {
         }
     }
 
-    if force {
+    if clear {
         cmd!("spacetime", "publish", "english-auction", "--clear-database").dir(english_auction_path).run()?;
     } else {
         cmd!("spacetime", "publish", "english-auction").dir(english_auction_path).run()?;

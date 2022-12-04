@@ -21,6 +21,15 @@ pub struct TournamentState {
 
     /// The identity of the person who owns this tournament (admin)
     owner: Hash,
+
+    /// The number of players allowed in the match
+    max_players: u32,
+}
+
+impl TournamentState {
+    fn singleton() -> TournamentState {
+        TournamentState::filter_by_version(0).expect("Tournament state must be initialized.")
+    }
 }
 
 #[spacetimedb(table)]
@@ -105,13 +114,14 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
         status: 0,
         current_match_id: -1,
         owner: sender,
+        max_players: MAX_PLAYERS
     });
 }
 
 /// Adds a set of letters to the database. These letters must all have unique tile ids.
 #[spacetimedb(reducer)]
 pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
-    let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
+    let ts = TournamentState::singleton();
     if ts.status != 0 {
         println!("Tournament is not in setup state!");
         panic!();
@@ -131,7 +141,7 @@ pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 /// Adds a set of words to the database. These words must all be unique.
 #[spacetimedb(reducer)]
 pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
-    let ts = TournamentState::filter_by_version(0).expect("Tournament must be initialized!");
+    let ts = TournamentState::singleton();
     if ts.status != 0 {
         println!("Tournament is not in setup state!");
         panic!();
@@ -153,13 +163,15 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
         panic!();
     }
 
+    let ts = TournamentState::singleton();
+
     let num_players: u32 = Player::iter().count() as u32;
-    if num_players < MAX_PLAYERS {
+    if num_players < ts.max_players {
         Player::insert(Player { id: sender, points: 100, name});
         return;
     }
 
-    println!("Already at max players.");
+    println!("Already at max players: {}/{}", num_players, ts.max_players);
     panic!();
 }
 
@@ -167,7 +179,7 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
 #[spacetimedb(reducer)]
 pub fn start_tournament(_sender: Hash, timestamp: u64) {
     // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
-    let mut ts = TournamentState::filter_by_version(0).expect("Tournament not yet created.");
+    let mut ts = TournamentState::singleton();
     if ts.status != 0 && ts.status != 2 {
         println!("Tournament not in setup or complete state.");
         panic!();
@@ -184,7 +196,7 @@ pub fn start_tournament(_sender: Hash, timestamp: u64) {
 /// Called at the start of every round. This will automatically increase the current match id
 /// in the tournament state. If there are no matches remaining it will also end the tournament.
 pub fn reset_round(timestamp: u64) {
-    let mut ts = TournamentState::filter_by_version(0).expect("Cannot reset the round, tournament has not been initialized.");
+    let mut ts = TournamentState::singleton();
     let new_match_id = ts.current_match_id + 1;
     if new_match_id as u32 > MAX_MATCH_COUNT - 1 {
         println!("We're done playing for now, thanks for playing!");
@@ -273,6 +285,7 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
 
     // If this is the final round we will determine a round winner and reset the game
     if current_match.is_last_round {
+        let match_id = current_match.id;
         current_match.status = 1;
         MatchState::update_by_id(current_match.id, current_match);
 
@@ -289,18 +302,18 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
         }
 
         if most_points.len() == 1 {
-            println!("The winner of this round is {}!!", most_points[0].name);
+            println!("Player '{}' won round {} with {} points!", most_points[0].name, match_id, winner_points);
             // TODO give them something for winning!
         } else if most_points.len() > 1 {
             let mut players = most_points[0].name.to_string();
             for player_name in most_points {
                 players.push_str(player_name.name.as_ref());
             }
-            println!("This round resulted in a tie between these players: {}", players);
+            println!("Round {} resulted in a tie between these players: {}", match_id, players);
 
             // TODO: What if there are multiple winners?
         } else {
-            println!("Nobody won this round!");
+            println!("Nobody won round {}", match_id);
         }
 
         reset_round(timestamp);
@@ -420,12 +433,16 @@ pub fn redeem_word(sender: Hash, _timestamp: u64, tile_ids: Vec<u32>) {
     let mut point_value = 0;
 
     if tile_ids.len() == 0 {
-        panic!("Must submit at least one tile.");
+        println!("Must submit at least one tile.");
+        panic!();
     }
 
     for tile_id in &tile_ids {
-        let pt = PlayerTile::filter_by_tile_id(*tile_id).expect("You do not own the tile.");
-        assert!(pt.player_id == sender, "You do not own the tile with id {}", tile_id);
+        let pt = PlayerTile::filter_by_tile_id(*tile_id).expect(&format!("F: You do not own the tile with id {}", tile_id));
+        if pt.player_id != sender {
+            println!("You do not own the tile with id {}", tile_id);
+            panic!();
+        }
         let lt = LetterTile::filter_by_tile_id(*tile_id).expect(&format!("Invalid tile id {}.", tile_id));
         point_value += lt.point_value;
         word.push_str(&lt.letter);
@@ -436,11 +453,14 @@ pub fn redeem_word(sender: Hash, _timestamp: u64, tile_ids: Vec<u32>) {
     }
 
     if !check_word(&word) {
-        panic!("No such word '{}'.", word);
+        println!("No such word '{}'.", word);
+        panic!();
     }
 
     let mut player = Player::filter_by_id(sender).expect("Not a player.");
     player.points += point_value;
+
+    println!("Player {} redeemed word '{}' for {} points!", player.name, word, point_value);
     Player::update_by_id(player.id, player);
 }
 

@@ -66,6 +66,8 @@ class Database {
 
 export class SpacetimeDBClient {
     ws: WSClient;
+    identity?: string = undefined;
+    token?: string = undefined;
     public db: Database;
     public emitter: EventEmitter;
 
@@ -82,7 +84,9 @@ export class SpacetimeDBClient {
                 maxReceivedMessageSize: 100000000,
             }
         );
+
         this.db = new Database();
+        this.ws.onclose = (_event) => {};
         this.ws.onmessage = (message: any) => {
             const data = JSON.parse(message.data);
             if (data) {
@@ -118,16 +122,21 @@ export class SpacetimeDBClient {
                     }
                     this.emitter.emit("event", txUpdate['event']);
                 } else if (data['IdentityToken']) {
-
+                    const identityToken = data['IdentityToken'];
+                    const identity = identityToken['identity'];
+                    const token = identityToken['token'];
+                    this.identity = identity;
+                    this.token = token;
                 }
             }
         };
     }
 
     call = (reducerName: String, args: Array<any>) => {
-        this.ws.send(`{
-            "fn": "${reducerName}",
-            "args": ${JSON.stringify(args)}
-        }`);
+        const msg = `{
+    "fn": "${reducerName}",
+    "args": ${JSON.stringify(args)}
+}`;
+        this.ws.send(msg);
     }
 }

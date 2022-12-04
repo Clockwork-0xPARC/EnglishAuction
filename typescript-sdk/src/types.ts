@@ -16,8 +16,9 @@ export type Word = {
 };
 
 export type Player = {
-    id: number[];
+    id: string;
     points: number;
+    name: string;
 };
 
 export type PlayerTile = {
