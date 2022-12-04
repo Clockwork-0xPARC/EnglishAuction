@@ -40,6 +40,69 @@ The rules of the word game played between bot programs are as follows:
    3. Winner gets 0.5 ETH
 
 
+# Making a bot
+Here is an example bot which uses our Typescript SDK:
+
+```typescript
+// Everything below this is part of an example bot that uses EAClient
+const checkWord = (myTiles: LetterTile[], word: string): LetterTile[] | null => {
+    const tilesChosen = [];
+    const myTilesRemaining = [...myTiles];
+    for (const letter of word) {
+        let found = false;
+        for (let i = 0; i < myTilesRemaining.length;) {
+            const tile = myTilesRemaining[i];
+            if (tile.letter == letter) {
+                tilesChosen.push({...tile});
+                myTilesRemaining.splice(i, 1);
+                found = true;
+                break;
+            } else {
+                i++;
+            }
+        }
+        if (!found) {
+            return null;
+        }
+    }
+    return tilesChosen;
+};
+
+const findRedeemableWord = (myTiles: LetterTile[], words: string[]): LetterTile[] | null => {
+    for (const word of words) {
+        const result = checkWord(myTiles, word);
+        if (result) {
+            return result;
+        }
+    }
+    return null;
+};
+
+const client = new EAClient(TODO your credentials);
+client.onInitialStateSync(async () => {
+    // TODO: do this the first time 
+    client.getCredentials();
+    await client.registerAsPlayer("Tyler");
+    client.onTileAuction(auction => {
+        client.makeBid(auction.auction_index, 1);
+    });
+    client.onReceiveTile(tile => {
+        const myTiles = client.getMyTiles();
+        let words = client.getWords();
+        words = words.filter(word => word.length < 4);
+        myTiles.sort((a, b) => a.letter.localeCompare(b.letter));
+        const tiles = findRedeemableWord(myTiles, words);
+        if (!tiles) {
+            return;
+        }
+        const tileIds = tiles.map(tile => tile.tile_id);
+        client.redeemWord(tileIds);
+    });
+});
+
+```
+
+
 
 
 
