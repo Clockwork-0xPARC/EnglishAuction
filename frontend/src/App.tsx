@@ -8,7 +8,7 @@ import { lobby_state } from './state/lobby.state';
 import { auction_state } from './state/auction.state';
 import { winning_bid_state } from './state/winning_bid.state';
 import { redeemed_word_state } from './state/redeemed_word.state';
-import { EAClient, WinningBid } from 'english-auction';
+import { EAClient, WinningBid } from '@clockworklabs/english-auction';
 import { RedeemedWordList } from './components/RedeemedWordList';
 
 const App = () => {
