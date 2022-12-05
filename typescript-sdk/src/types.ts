@@ -50,3 +50,17 @@ export type PlayerBid = {
     points: number;
     timestamp: number;
 };
+
+export type WinningBid = {
+    auction_index: number,
+    player_name: string,
+    letter: number,
+    points: number,
+};
+
+export type RedeemedWord = {
+    player_name: string,
+    word: string,
+    points: number,
+    timestamp: number,
+};

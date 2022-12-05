@@ -1,8 +1,8 @@
 // import { Subject } from 'rxjs';
 import { SpacetimeDBClient, SpacetimeDBEvent } from './spacetimedb';
-import { LetterTile, Player, PlayerTile, TileAuction, TournamentState } from './types';
 import { Buffer } from "buffer";
 export * from "./types";
+import { LetterTile, Player, PlayerTile, RedeemedWord, TileAuction, TournamentState, WinningBid } from './types';
 
 export class EAClient {
     client: SpacetimeDBClient;
@@ -84,6 +84,18 @@ export class EAClient {
         })
     }
 
+    public onWinningBid = (cb: (winningBid: WinningBid) => void) => {
+        const table = this.client.db.getOrCreateTable("WinningBid");
+        table.onInsert((row) => {
+            cb({
+                auction_index: row[0],
+                player_name: row[1],
+                letter: row[2],
+                points: row[3],
+            });
+        })
+    }
+
     public onPlayerJoined = (cb: (player: Player) => void) => {
         const table = this.client.db.getOrCreateTable("Player");
         table.onInsert((row) => {
@@ -106,6 +118,18 @@ export class EAClient {
                 name: row[2],
             });
         })
+    }
+    
+    public onRedeemedWord = (cb: (word: RedeemedWord) => void) => {
+        const table = this.client.db.getOrCreateTable("RedeemedWord");
+        table.onInsert((row) => {
+            cb({
+                player_name: row[0],
+                word: row[1],
+                points: row[2],
+                timestamp: row[3],
+            });
+        });
     }
 
     public getCredentials = (): { identity: string, token: string } | undefined => {
@@ -217,4 +241,36 @@ export class EAClient {
             .reverse();
         return auctions;
     }
+
+    public getWinningBids = (): WinningBid[] => {
+        const winningBidTable = this.client.db.getOrCreateTable("WinningBid");
+        const bids = [];
+        for (const row of winningBidTable.rows.values()) {
+            bids.push({
+                auction_index: row[0],
+                player_name: row[1],
+                letter: row[2],
+                points: row[3],
+            });
+        }
+        bids.sort((a, b) => a.auction_index - b.auction_index)
+            .reverse();
+        return bids;
+    }
+
+    public getRedeemedWords = (): RedeemedWord[] => {
+        const table = this.client.db.getOrCreateTable("RedeemedWord");
+        const things = [];
+        for (const row of table.rows.values()) {
+            things.push({
+                player_name: row[0],
+                word: row[1],
+                points: row[2],
+                timestamp: row[3],
+            });
+        }
+        things.sort((a, b) => b.timestamp - a.timestamp);
+        return things;
+    }
+
 }

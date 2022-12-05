@@ -17,16 +17,24 @@ export const Scoreboard = () => {
             )}
             <div className="flex flex-col mt-4">
                 {players.map((player, index) => (
-                    <div
-                        className="mb-4 flex justify-between items-center"
-                        key={index}
-                    >
-                        <h3 className="font-bold">{player.name}</h3>
+                    <div className="mb-4" key={index}>
+                        <div
+                            className="flex justify-between items-center"
+                            key={index}
+                        >
+                            <h3 className="font-bold">{player.name}</h3>
+                            <p
+                                className="truncate text-yellow-600"
+                                key={index}
+                            >
+                                {player.points}
+                            </p>
+                        </div>
                         <p
                             className="truncate text-yellow-600 mt-2"
                             key={index}
                         >
-                            {player.points}
+                            ID: {player.id}
                         </p>
                     </div>
                 ))}

@@ -152,13 +152,7 @@ export class SpacetimeDBClient {
                     for (const tableUpdate of tableUpdates) {
                         const tableName = tableUpdate["table_name"];
                         const table = this.db.getOrCreateTable(tableName);
-                        for (const op of tableUpdate["table_row_operations"]) {
-                            if (op["op"] === "insert") {
-                                table.insert(op["row_pk"], op["row"])
-                            } else {
-                                table.delete(op["row_pk"])
-                            }
-                        }
+                        table.applyOperations(tableUpdate["table_row_operations"]);
                     }
                     this.emitter.emit("initialStateSync");
                 } else if (data['TransactionUpdate']) {

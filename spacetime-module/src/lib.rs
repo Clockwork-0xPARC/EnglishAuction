@@ -54,6 +54,7 @@ pub struct Player {
     #[unique]
     id: Hash,
     points: u32,
+    #[unique]
     name: String,
 }
 
@@ -94,6 +95,24 @@ pub struct TileAuction {
 struct PlayerBid {
     player_id: Hash,
     auction_index: u32,
+    points: u32,
+    timestamp: u64,
+}
+
+#[spacetimedb(table)]
+struct WinningBid {
+    #[unique]
+    auction_index: u32,
+    player_name: String,
+    letter: String,
+    points: u32,
+}
+
+#[spacetimedb(table)]
+struct RedeemedWord {
+    #[unique]
+    player_name: String,
+    word: String,
     points: u32,
     timestamp: u64,
 }
@@ -165,6 +184,13 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
 
     let ts = TournamentState::singleton();
 
+    for player in Player::iter() {
+        if player.name == name {
+            println!("Name already taken.");
+            panic!();
+        }
+    }
+
     let num_players: u32 = Player::iter().count() as u32;
     if num_players < ts.max_players {
         Player::insert(Player { id: sender, points: 100, name});
@@ -190,12 +216,12 @@ pub fn start_tournament(_sender: Hash, timestamp: u64) {
     TournamentState::update_by_version(0, ts);
 
     // Call reset round to start the game
-    reset_round(timestamp);
+    reset_match(timestamp);
 }
 
 /// Called at the start of every round. This will automatically increase the current match id
 /// in the tournament state. If there are no matches remaining it will also end the tournament.
-pub fn reset_round(timestamp: u64) {
+pub fn reset_match(timestamp: u64) {
     let mut ts = TournamentState::singleton();
     let new_match_id = ts.current_match_id + 1;
     if new_match_id as u32 > MAX_MATCH_COUNT - 1 {
@@ -302,21 +328,21 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
         }
 
         if most_points.len() == 1 {
-            println!("Player '{}' won round {} with {} points!", most_points[0].name, match_id, winner_points);
+            println!("Player '{}' won match {} with {} points!", most_points[0].name, match_id, winner_points);
             // TODO give them something for winning!
         } else if most_points.len() > 1 {
             let mut players = most_points[0].name.to_string();
             for player_name in most_points {
                 players.push_str(player_name.name.as_ref());
             }
-            println!("Round {} resulted in a tie between these players: {}", match_id, players);
+            println!("Match {} resulted in a tie between these players: {}", match_id, players);
 
             // TODO: What if there are multiple winners?
         } else {
-            println!("Nobody won round {}", match_id);
+            println!("Nobody won match {}", match_id);
         }
 
-        reset_round(timestamp);
+        reset_match(timestamp);
         return;
     }
 
@@ -346,6 +372,7 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
         if let Some(max_bid) = max_bid {
             let curr_auction = TileAuction::filter_by_auction_index(curr_auction_index).unwrap();
             let mut player = Player::filter_by_id(max_bid.player_id).unwrap();
+            let player_name = player.name.clone();
             player.points -= max_bid.points;
             PlayerTile::insert(PlayerTile {
                 player_id: player.id,
@@ -353,6 +380,12 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
             });
             println!("Player {} won the auction", player.name);
             Player::update_by_id(player.id, player);
+            WinningBid::insert(WinningBid {
+                auction_index: curr_auction.auction_index,
+                player_name,
+                points: max_bid.points,
+                letter: curr_auction.letter,
+            });
         } else {
             println!("Nobody won the auction")
             // Do nothing and move on.
@@ -428,7 +461,7 @@ pub fn make_bid(sender: Hash, timestamp: u64, auction_index: u32, points: u32) {
 /// This is called by players to spend their letters to gain points which can then be used
 /// to buy more letters at an auction
 #[spacetimedb(reducer)]
-pub fn redeem_word(sender: Hash, _timestamp: u64, tile_ids: Vec<u32>) {
+pub fn redeem_word(sender: Hash, timestamp: u64, tile_ids: Vec<u32>) {
     let mut word = String::new();
     let mut point_value = 0;
 
@@ -461,6 +494,12 @@ pub fn redeem_word(sender: Hash, _timestamp: u64, tile_ids: Vec<u32>) {
     player.points += point_value;
 
     println!("Player {} redeemed word '{}' for {} points!", player.name, word, point_value);
+    RedeemedWord::insert(RedeemedWord {
+        player_name: player.name.clone(),
+        word,
+        points: point_value,
+        timestamp,
+    });
     Player::update_by_id(player.id, player);
 }
 
