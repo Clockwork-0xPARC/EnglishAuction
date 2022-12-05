@@ -6,8 +6,8 @@ import { LetterTile, Player, PlayerTile, RedeemedWord, TileAuction, TournamentSt
 export class EAClient {
     client: SpacetimeDBClient;
 
-    constructor(name_or_address: string, credentials?: {identity: string, token: string}) {
-        this.client = new SpacetimeDBClient(name_or_address, credentials);
+    constructor(host: string, name_or_address: string, credentials?: {identity: string, token: string}) {
+        this.client = new SpacetimeDBClient(host, name_or_address, credentials);
         this.client.db.getOrCreateTable("Player", 2);
     }
 

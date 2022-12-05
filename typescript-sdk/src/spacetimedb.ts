@@ -119,7 +119,7 @@ export class SpacetimeDBClient {
     public db: Database;
     public emitter: EventEmitter;
 
-    constructor(name_or_address: string, credentials?: {identity: string, token: string}) {
+    constructor(host: string, name_or_address: string, credentials?: {identity: string, token: string}) {
         let headers = undefined;
         if (credentials) {
             this.identity = credentials.identity;
@@ -130,7 +130,7 @@ export class SpacetimeDBClient {
         }
         this.emitter = new EventEmitter();
         this.ws = new WSClient(
-            `ws://localhost:3000/database/subscribe?name_or_address=${name_or_address}`,
+            `ws://${host}/database/subscribe?name_or_address=${name_or_address}`,
             'v1.text.spacetimedb',
             undefined,
             headers,
