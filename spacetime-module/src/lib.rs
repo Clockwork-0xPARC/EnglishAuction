@@ -2,9 +2,6 @@ use rand::{SeedableRng, Rng};
 use rand_chacha::ChaCha8Rng;
 use spacetimedb::{spacetimedb, Hash, println};
 
-const MAX_PLAYERS: u32 = 5;
-const MAX_MATCH_COUNT: u32 = 10;
-
 #[spacetimedb(table)]
 pub struct TournamentState {
     #[unique]
@@ -18,6 +15,9 @@ pub struct TournamentState {
     /// The match ID of the current match. during setup when there is no match this value is set
     /// to -1. When the game is actually started this value will be >= 0.
     current_match_id: i32,
+
+    /// The number of matches to play in a tournament
+    num_matches: u32,
 
     /// The identity of the person who owns this tournament (admin)
     owner: Hash,
@@ -132,9 +132,30 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
         version: 0,
         status: 0,
         current_match_id: -1,
+        num_matches: 10,
         owner: sender,
-        max_players: MAX_PLAYERS
+        max_players: 5
     });
+}
+
+/// Sets the number of matches to play in a tournament
+#[spacetimedb(reducer)]
+pub fn set_num_matches(_sender: Hash, _timestamp: u64, num_matches: u32) {
+    let Some(mut ts) = TournamentState::filter_by_version(0) else {
+        panic!("Tournament has not been initialized!");
+    };
+    ts.num_matches = num_matches;
+    TournamentState::update_by_version(0, ts);
+}
+
+/// Sets the maximum number of players allowed in the match
+#[spacetimedb(reducer)]
+pub fn set_max_players(_sender: Hash, _timestamp: u64, max_players: u32) {
+    let Some(mut ts) = TournamentState::filter_by_version(0) else {
+        panic!("Tournament has not been initialized!");
+    };
+    ts.max_players = max_players;
+    TournamentState::update_by_version(0, ts);
 }
 
 /// Adds a set of letters to the database. These letters must all have unique tile ids.
@@ -185,7 +206,7 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
     let ts = TournamentState::singleton();
 
     for player in Player::iter() {
-        if player.name == name {
+        if player.name.to_lowercase() == name.to_lowercase() {
             println!("Name already taken.");
             panic!();
         }
@@ -213,6 +234,7 @@ pub fn start_tournament(_sender: Hash, timestamp: u64) {
 
     // Start the tournament!
     ts.status = 1;
+    ts.current_match_id = -1;
     TournamentState::update_by_version(0, ts);
 
     // Call reset round to start the game
@@ -224,7 +246,7 @@ pub fn start_tournament(_sender: Hash, timestamp: u64) {
 pub fn reset_match(timestamp: u64) {
     let mut ts = TournamentState::singleton();
     let new_match_id = ts.current_match_id + 1;
-    if new_match_id as u32 > MAX_MATCH_COUNT - 1 {
+    if new_match_id as u32 >= ts.num_matches {
         println!("We're done playing for now, thanks for playing!");
         ts.status = 2;
         TournamentState::update_by_version(0, ts);

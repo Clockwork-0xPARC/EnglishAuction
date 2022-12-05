@@ -4,6 +4,7 @@ use clap::error::{ContextKind, ContextValue};
 
 mod init;
 mod start;
+mod update;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error>{
@@ -67,12 +68,14 @@ pub fn get_subcommands() -> Vec<Command> {
     vec![
         init::cli(),
         start::cli(),
+        update::cli(),
     ]
 }
 pub async fn exec_subcommand(cmd: &str, args: &ArgMatches) -> Result<(), anyhow::Error> {
     match cmd {
         "init" => init::exec(args).await,
         "start" => start::exec(args).await,
+        "update" => update::exec(args).await,
         unknown => Err(anyhow::anyhow!("Invalid subcommand: {}", unknown)),
     }
 }
