@@ -78,16 +78,18 @@ const findRedeemableWord = (myTiles: LetterTile[], words: string[]): LetterTile[
     return null;
 };
 
-const client = new EAClient(TODO your credentials);
+const client = new EAClient("english-auction.spacetimedb.net:3000", "english-auction");
 client.onInitialStateSync(async () => {
-    // TODO: do this the first time 
-    client.getCredentials();
-    await client.registerAsPlayer("Tyler");
+    await client.registerAsPlayer("Tyler" + Math.floor(Math.random() * 1000));
+    console.log(client.getCredentials());
+    console.log(client.getMyPlayer());
     client.onTileAuction(auction => {
         client.makeBid(auction.auction_index, 1);
     });
+
     client.onReceiveTile(tile => {
         const myTiles = client.getMyTiles();
+        console.log(myTiles);
         let words = client.getWords();
         words = words.filter(word => word.length < 4);
         myTiles.sort((a, b) => a.letter.localeCompare(b.letter));
@@ -95,11 +97,11 @@ client.onInitialStateSync(async () => {
         if (!tiles) {
             return;
         }
+        console.log("REDEEMING: ", tiles);
         const tileIds = tiles.map(tile => tile.tile_id);
         client.redeemWord(tileIds);
     });
 });
-
 ```
 
 
