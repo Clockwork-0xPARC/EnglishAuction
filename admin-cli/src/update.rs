@@ -1,13 +1,6 @@
-
-
 use clap::{Arg, ArgMatches};
+use clap;
 use duct::cmd;
-
-
-
-
-
-
 
 pub fn cli() -> clap::Command {
     clap::Command::new("update")
