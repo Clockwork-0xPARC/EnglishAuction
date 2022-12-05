@@ -91,7 +91,7 @@ pub async fn exec(args: &ArgMatches) -> Result<(), anyhow::Error> {
     let tiles_str = serde_json::to_string(&tiles).unwrap();
     cmd!("spacetime", "call", "english-auction", "add_letters", format!("[{}]", tiles_str)).dir(english_auction_path).run()?;
 
-    let batch_size = 300;
+    let batch_size = 10000;
     let mut word_idx = 0;
     while word_idx < word_list.len() {
         let end = word_idx + batch_size;
