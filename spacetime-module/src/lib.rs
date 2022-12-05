@@ -233,9 +233,13 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
 
 /// Starts a tournament that either has not been started or is in the finished status.
 #[spacetimedb(reducer)]
-pub fn start_tournament(_sender: Hash, timestamp: u64) {
-    // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
+pub fn start_tournament(sender: Hash, timestamp: u64) {
     let mut ts = TournamentState::singleton();
+
+    if !ts.owner.eq(&sender) {
+        panic!("Sender is not the owner of the tournament!");
+    }
+
     if ts.status != 0 && ts.status != 2 {
         println!("Tournament not in setup or complete state.");
         panic!();
