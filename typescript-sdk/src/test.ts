@@ -35,7 +35,7 @@ const findRedeemableWord = (myTiles: LetterTile[], words: string[]): LetterTile[
     return null;
 };
 
-const client = new EAClient();
+const client = new EAClient("english-auction");
 client.onInitialStateSync(async () => {
     await client.registerAsPlayer("Tyler" + Math.floor(Math.random() * 1000));
     console.log(client.getCredentials());

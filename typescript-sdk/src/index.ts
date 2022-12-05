@@ -1,4 +1,3 @@
-// import { Subject } from 'rxjs';
 import { SpacetimeDBClient, SpacetimeDBEvent } from './spacetimedb';
 import { Buffer } from "buffer";
 export * from "./types";
@@ -7,8 +6,8 @@ import { LetterTile, Player, PlayerTile, RedeemedWord, TileAuction, TournamentSt
 export class EAClient {
     client: SpacetimeDBClient;
 
-    constructor(credentials?: {identity: string, token: string}) {
-        this.client = new SpacetimeDBClient("english-auction", credentials);
+    constructor(name_or_address: string, credentials?: {identity: string, token: string}) {
+        this.client = new SpacetimeDBClient(name_or_address, credentials);
         this.client.db.getOrCreateTable("Player", 2);
     }
 

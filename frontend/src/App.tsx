@@ -45,7 +45,7 @@ const App = () => {
     };
 
     useEffect(() => {
-        const client = new EAClient();
+        const client = new EAClient(window.location.pathname ? window.location.pathname : "english-auction");
         client.onTournamentStateUpdate(tournamentState => {
             setTourneyState({
                 version: tournamentState.version,
