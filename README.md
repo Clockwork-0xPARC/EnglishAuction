@@ -1,8 +1,16 @@
 # 0xPARC EnglishAuction Game
 
-# Prize 
+# Prize
 0.5 ETH ($650)
 > NOTE: The system is not yet stable. Actively trying to ruin the game will disqualify you.
+
+# Install
+
+```sh
+npm add https://gitpkg.now.sh/Clockwork-0xPARC/EnglishAuction/typescript-sdk
+# OR
+yarn add https://gitpkg.now.sh/Clockwork-0xPARC/EnglishAuction/typescript-sdk
+```
 
 # Rules
 The rules of the word game played between bot programs are as follows:
