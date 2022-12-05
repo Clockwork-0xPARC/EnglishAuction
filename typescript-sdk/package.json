@@ -1,7 +1,18 @@
 {
-  "name": "english-auction",
+  "name": "@clockworklabs/english-auction",
   "version": "0.0.1",
   "description": "A client for use in the EnglishAuction",
+  "author": {
+    "name": "Clockwork Labs",
+    "email": "no-reply@clockworklabs.io"
+  },
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/clockworklabs/EnglishAuction.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/clockworklabs"
+  },
   "types": "./dist/index.d.ts",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
