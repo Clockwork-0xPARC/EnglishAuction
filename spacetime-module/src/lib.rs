@@ -121,9 +121,6 @@ struct RedeemedWord {
 /// until this setup process is completed.
 #[spacetimedb(reducer)]
 pub fn init_tournament(sender: Hash, _timestamp: u64) {
-    //TODO: Eventually this will be converted to the module init() function and we will have to register
-    // the owner separately
-
     if TournamentState::filter_by_version(0).is_some() {
         panic!("Tournament has already been initialized!");
     }
@@ -140,33 +137,42 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
 
 /// Sets the number of matches to play in a tournament
 #[spacetimedb(reducer)]
-pub fn set_num_matches(_sender: Hash, _timestamp: u64, num_matches: u32) {
+pub fn set_num_matches(sender: Hash, _timestamp: u64, num_matches: u32) {
     let Some(mut ts) = TournamentState::filter_by_version(0) else {
         panic!("Tournament has not been initialized!");
     };
+    if !ts.owner.eq(&sender) {
+        panic!("Sender is not the owner of the tournament!");
+    }
+
     ts.num_matches = num_matches;
     TournamentState::update_by_version(0, ts);
 }
 
 /// Sets the maximum number of players allowed in the match
 #[spacetimedb(reducer)]
-pub fn set_max_players(_sender: Hash, _timestamp: u64, max_players: u32) {
+pub fn set_max_players(sender: Hash, _timestamp: u64, max_players: u32) {
     let Some(mut ts) = TournamentState::filter_by_version(0) else {
         panic!("Tournament has not been initialized!");
     };
+    if !ts.owner.eq(&sender) {
+        panic!("Sender is not the owner of the tournament!");
+    }
     ts.max_players = max_players;
     TournamentState::update_by_version(0, ts);
 }
 
 /// Adds a set of letters to the database. These letters must all have unique tile ids.
 #[spacetimedb(reducer)]
-pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
+pub fn add_letters(sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
     let ts = TournamentState::singleton();
     if ts.status != 0 {
         println!("Tournament is not in setup state!");
         panic!();
     }
-    // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
+    if !ts.owner.eq(&sender) {
+        panic!("Sender is not the owner of the tournament!");
+    }
 
     for letter in letters {
         if LetterTile::filter_by_tile_id(letter.tile_id).is_some() {
@@ -180,13 +186,16 @@ pub fn add_letters(_sender: Hash, _timestamp: u64, letters: Vec<LetterTile>) {
 
 /// Adds a set of words to the database. These words must all be unique.
 #[spacetimedb(reducer)]
-pub fn add_words(_sender: Hash, _timestamp: u64, words: Vec<String>) {
+pub fn add_words(sender: Hash, _timestamp: u64, words: Vec<String>) {
     let ts = TournamentState::singleton();
     if ts.status != 0 {
         println!("Tournament is not in setup state!");
         panic!();
     }
-    // TODO: assert!(sender.eq(&ts.owner), "You are not the admin user!");
+
+    if !ts.owner.eq(&sender) {
+        panic!("Sender is not the owner of the tournament!");
+    }
 
     for word in words {
         Word::insert(Word { word })
