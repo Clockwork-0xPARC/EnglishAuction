@@ -1,13 +1,6 @@
-
-
 use clap::{Arg, ArgMatches};
+use clap;
 use duct::cmd;
-
-
-
-
-
-
 
 pub fn cli() -> clap::Command {
     clap::Command::new("update")
@@ -17,11 +10,13 @@ pub fn cli() -> clap::Command {
                 .long("matches")
                 .short('m')
                 .required(false)
+                .value_parser(clap::value_parser!(u32))
                 .help("The number of matches to play in a tournament"))
         .arg(Arg::new("players")
                 .long("players")
                 .short('p')
                 .required(false)
+                .value_parser(clap::value_parser!(u32))
                 .help("The number of players to allow to register in the tournament"))
 }
 
@@ -30,7 +25,7 @@ pub async fn exec(args: &ArgMatches) -> Result<(), anyhow::Error> {
     let players = args.get_one::<u32>("players");
 
     if let Some(matches) = matches {
-        cmd!("spacetime", "call", "english-auction", "set_max_matches", format!("[{}]", matches)).run()?;
+        cmd!("spacetime", "call", "english-auction", "set_num_matches", format!("[{}]", matches)).run()?;
     }
 
     if let Some(players) = players {
