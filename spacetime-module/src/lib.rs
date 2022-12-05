@@ -512,6 +512,10 @@ pub fn redeem_word(sender: Hash, timestamp: u64, tile_ids: Vec<u32>) {
         panic!();
     }
 
+    if word.len() >= 9 {
+        point_value += 10;
+    }
+
     let mut player = Player::filter_by_id(sender).expect("Not a player.");
     player.points += point_value;
 
