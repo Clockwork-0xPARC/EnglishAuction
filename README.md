@@ -22,7 +22,6 @@ The rules of the word game played between bot programs are as follows:
 - Each bot is given 100 points to start.
 - The remaining scrabble letters are auctioned off to the bots in a first price, sealed bid auction.
 - Every second, a random letter is chosen from the bag and shown to all participants.
-- All bots are assumed to bid 0 for the letter at the start of the second.
 - During the 1-second auction period, the bots can change their current bid for the letter.
 - At the end of the 1-second period, the highest bidder is chosen and awarded the letter.
 - In case of a tie, the earlier bidder wins.
