@@ -1,7 +1,7 @@
 import { atom } from 'recoil';
-import { Player } from '@clockworklabs/english-auction';
+import { TournamentPlayer } from '@clockworklabs/english-auction';
 
-export const lobby_state = atom<{ players: Player[] }>({
+export const lobby_state = atom<{ players: TournamentPlayer[] }>({
     key: 'lobby_state',
     default: {
         players: []

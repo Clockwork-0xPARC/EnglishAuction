@@ -69,7 +69,7 @@ const App = () => {
         });
 
         client.onTournamentPlayer(player => {
-            const players = client.getAllPlayers();
+            const players = client.getTournamentPlayers();
             setLobbyState({
                 players,
             });
