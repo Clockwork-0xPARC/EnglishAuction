@@ -1,11 +1,13 @@
 import { useRecoilState } from 'recoil';
 import { PreStart } from './components/PreStart';
 import { Scoreboard } from './components/Scoreboard';
+import { MatchScoreboard } from './components/MatchScoreboard';
 import { tourney_state } from './state/tourney.state';
 import toast, { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { lobby_state } from './state/lobby.state';
 import { auction_state } from './state/auction.state';
+import { match_state } from './state/match.state';
 import { winning_bid_state } from './state/winning_bid.state';
 import { redeemed_word_state } from './state/redeemed_word.state';
 import { EAClient, WinningBid } from '@clockworklabs/english-auction';
@@ -13,6 +15,7 @@ import { RedeemedWordList } from './components/RedeemedWordList';
 
 const App = () => {
     const [tourneyState, setTourneyState] = useRecoilState(tourney_state);
+    const [, setMatchState] = useRecoilState(match_state);
     const [, setLobbyState] = useRecoilState(lobby_state);
     const [auctionState, setAuctionState] = useRecoilState(auction_state);
     const [winningBidState, setWinningBidState] = useRecoilState(winning_bid_state);
@@ -61,7 +64,7 @@ const App = () => {
         });
 
         client.onPlayerJoined(player => {
-            const players = client.getAllPlayers();
+            const players = client.getTournamentPlayers();
             setLobbyState({
                 players,
             });
@@ -71,6 +74,13 @@ const App = () => {
         client.onTournamentPlayer(player => {
             const players = client.getTournamentPlayers();
             setLobbyState({
+                players,
+            });
+        })
+        
+        client.onPlayerUpdate(player => {
+            const players = client.getAllPlayers();
+            setMatchState({
                 players,
             });
         })
@@ -96,7 +106,7 @@ const App = () => {
             });
         });
 
-    }, [setAuctionState, setLobbyState, setTourneyState, setWinningBidState, setRedeemedWordState]);
+    }, [setAuctionState, setLobbyState, setTourneyState, setWinningBidState, setRedeemedWordState, setMatchState]);
 
     return (
         <div className="max-w-screen-2xl m-auto p-4 text-white">
@@ -109,37 +119,40 @@ const App = () => {
                         <Scoreboard />
                         <RedeemedWordList />
                     </div>
-                    <div className="flex flex-col w-2/4 m-auto items-center justify-center">
-                        {auctions.length > 0 &&
-                            auctions.slice(0, 10).map((x, index) => (
-                                <div
-                                    key={index}
-                                    className="my-4 w-full"
-                                    style={{
-                                        opacity: index !== 0 ? 0.5 : 1
-                                    }}
-                                >
-                                    <div className="bg-card-color p-8 rounded-xl shadow-lg flex flex-col justify-center items-center">
-                                        <h2 className="text-2xl">
-                                            {index === 0
-                                                ? `Current Round`
-                                                : `Prior round`}
-                                        </h2>
-                                        <p className="my-4 text-lg font-bold text-yellow-500">
-                                            Letter: {x.letter}
-                                        </p>
-                                        {index !== 0 && winningBidsMap.has(x.auction_index) && (
-                                            <p className="text-faint">
-                                                Bid won by{' '}
-                                                <span className="text-primary">
-                                                    {winningBidsMap.get(x.auction_index)!.player_name}
-                                                </span>{' '}
-                                                for {winningBidsMap.get(x.auction_index)!.points} point(s).
+                    <div className="flex flex-col w-2/4 m-auto items-center justify-between h-100">
+                        <MatchScoreboard />
+                        <div className="flex flex-col w-2/4 m-auto items-center justify-center overflow-scroll">
+                            {auctions.length > 0 &&
+                                auctions.slice(0, 10).map((x, index) => (
+                                    <div
+                                        key={index}
+                                        className="my-4 w-full"
+                                        style={{
+                                            opacity: index !== 0 ? 0.5 : 1
+                                        }}
+                                    >
+                                        <div className="bg-card-color p-8 rounded-xl shadow-lg flex flex-col justify-center items-center">
+                                            <h2 className="text-2xl">
+                                                {index === 0
+                                                    ? `Current Round`
+                                                    : `Prior round`}
+                                            </h2>
+                                            <p className="my-4 text-lg font-bold text-yellow-500">
+                                                Letter: {x.letter}
                                             </p>
-                                        )}
+                                            {index !== 0 && winningBidsMap.has(x.auction_index) && (
+                                                <p className="text-faint">
+                                                    Bid won by{' '}
+                                                    <span className="text-primary">
+                                                        {winningBidsMap.get(x.auction_index)!.player_name}
+                                                    </span>{' '}
+                                                    for {winningBidsMap.get(x.auction_index)!.points} point(s).
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                        </div>
                     </div>
                 </div>
             )}

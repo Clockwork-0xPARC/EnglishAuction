@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@clockworklabs/english-auction": "https://gitpkg.now.sh/Clockwork-0xPARC/EnglishAuction/typescript-sdk",
+    "@clockworklabs/english-auction": "file:../typescript-sdk",
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^13.0.0",
     "@testing-library/user-event": "^13.2.1",

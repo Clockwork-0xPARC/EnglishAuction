@@ -283,8 +283,9 @@ class EAClient {
             const table = this.client.db.getOrCreateTable("MatchResult");
             const map = new Map();
             for (const row of table.rows.values()) {
+                const identity = buffer_1.Buffer.from(row[0]['data'], 'utf8').toString('hex');
                 const matchResult = {
-                    id: row[0],
+                    id: identity,
                     points: row[1],
                     name: row[2],
                     match_id: row[3],
