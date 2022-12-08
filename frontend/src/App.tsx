@@ -68,7 +68,7 @@ const App = () => {
             onJoin(player.name);
         });
 
-        client.onPlayerUpdate(player => {
+        client.onTournamentPlayer(player => {
             const players = client.getAllPlayers();
             setLobbyState({
                 players,

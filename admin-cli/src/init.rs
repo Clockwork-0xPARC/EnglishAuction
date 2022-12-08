@@ -57,12 +57,24 @@ pub fn cli() -> clap::Command {
                 .required(false)
                 .action(SetTrue)
                 .help("adds --clear-database during publish"))
+        .arg(Arg::new("matches")
+                .long("matches")
+                .required(false)
+                .value_parser(clap::value_parser!(u32))
+                .help("The number of matches to play in a tournament"))
+        .arg(Arg::new("players")
+                .long("players")
+                .required(false)
+                .value_parser(clap::value_parser!(u32))
+                .help("The number of players to allow to register in the tournament"))
 }
 
 pub async fn exec(args: &ArgMatches) -> Result<(), anyhow::Error> {
     let word_file = args.get_one::<PathBuf>("words").unwrap();
     let letter_file = args.get_one::<PathBuf>("letters").unwrap();
     let english_auction_path = args.get_one::<PathBuf>("path").unwrap();
+    let matches = args.get_one::<u32>("matches").map(|x| *x).unwrap_or(10);
+    let players = args.get_one::<u32>("players").map(|x| *x).unwrap_or(5);
     let clear = args.get_flag("clear");
 
     let word_list: Vec<String> = serde_json::from_str(read_to_string(word_file)?.as_ref()).unwrap();
@@ -87,7 +99,7 @@ pub async fn exec(args: &ArgMatches) -> Result<(), anyhow::Error> {
         cmd!("spacetime", "publish", "english-auction").dir(english_auction_path).run()?;
     }
     thread::sleep(Duration::from_secs(3));
-    cmd!("spacetime", "call", "english-auction", "init_tournament").dir(english_auction_path).run()?;
+    cmd!("spacetime", "call", "english-auction", "init_tournament", format!("[{}, {}]", matches, players)).dir(english_auction_path).run()?;
     let tiles_str = serde_json::to_string(&tiles).unwrap();
     cmd!("spacetime", "call", "english-auction", "add_letters", format!("[{}]", tiles_str)).dir(english_auction_path).run()?;
 

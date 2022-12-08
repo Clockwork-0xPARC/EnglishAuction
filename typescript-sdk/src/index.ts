@@ -1,7 +1,7 @@
 import { SpacetimeDBClient, SpacetimeDBEvent } from './spacetimedb';
 import { Buffer } from "buffer";
 export * from "./types";
-import { LetterTile, Player, PlayerTile, RedeemedWord, TileAuction, TournamentState, WinningBid } from './types';
+import { LetterTile, MatchResult, Player, PlayerTile, RedeemedWord, TileAuction, TournamentPlayer, TournamentState, WinningBid } from './types';
 
 export class EAClient {
     client: SpacetimeDBClient;
@@ -75,6 +75,17 @@ export class EAClient {
             cb({
                 tile_id: row[0],
                 player_id: row[1],
+            });
+        })
+    }
+    
+    public onTournamentPlayer = (cb: (player: TournamentPlayer) => void) => {
+        const table = this.client.db.getOrCreateTable("TournamentPlayer");
+        table.onInsert((row) => {
+            cb({
+                id: row[0],
+                points: row[1],
+                name: row[2],
             });
         })
     }
@@ -280,4 +291,36 @@ export class EAClient {
         return things;
     }
 
+    public getMatchResultMap = (): Map<number, MatchResult[]> => {
+        const table = this.client.db.getOrCreateTable("MatchResult");
+        const map = new Map();
+        for (const row of table.rows.values()) {
+            const matchResult = {
+                id: row[0],
+                points: row[1],
+                name: row[2],
+                match_id: row[3],
+            };
+            let list = map.get(matchResult.match_id);
+            if (!list) {
+                list = [];
+                map.set(matchResult.match_id, list);
+            }
+            list.push(matchResult)
+        }
+        return map;
+    }
+
+    public getTournamentPlayers = (): TournamentPlayer[] => {
+        const table = this.client.db.getOrCreateTable("TournamentPlayer");
+        const things = [];
+        for (const row of table.rows.values()) {
+            things.push({
+                id: row[0],
+                points: row[1],
+                name: row[2],
+            });
+        }
+        return things;
+    }
 }

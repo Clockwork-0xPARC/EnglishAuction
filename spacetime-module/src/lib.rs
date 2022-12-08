@@ -12,9 +12,8 @@ pub struct TournamentState {
     /// 2 = tournament is done and a winner has been picked
     status: u32,
 
-    /// The match ID of the current match. during setup when there is no match this value is set
-    /// to -1. When the game is actually started this value will be >= 0.
-    current_match_id: i32,
+    /// The match ID of the current match. Starts at 0 and increases with each map.
+    current_match_id: u32,
 
     /// The number of matches to play in a tournament
     num_matches: u32,
@@ -47,6 +46,25 @@ pub struct MatchState {
 #[spacetimedb(table)]
 pub struct Word {
     word: String,
+}
+
+#[spacetimedb(table)]
+pub struct TournamentPlayer {
+    #[unique]
+    id: Hash,
+    points: u32,
+    #[unique]
+    name: String,
+}
+
+#[spacetimedb(table)]
+pub struct MatchResult {
+    #[unique]
+    id: Hash,
+    points: u32,
+    #[unique]
+    name: String,
+    match_id: u32,
 }
 
 #[spacetimedb(table)]
@@ -120,7 +138,7 @@ struct RedeemedWord {
 /// This should be called asap when the module is instantiated. Players cannot do anything
 /// until this setup process is completed.
 #[spacetimedb(reducer)]
-pub fn init_tournament(sender: Hash, _timestamp: u64) {
+pub fn init_tournament(sender: Hash, _timestamp: u64, num_matches: u32, max_players: u32) {
     if TournamentState::filter_by_version(0).is_some() {
         panic!("Tournament has already been initialized!");
     }
@@ -128,10 +146,10 @@ pub fn init_tournament(sender: Hash, _timestamp: u64) {
     TournamentState::insert(TournamentState {
         version: 0,
         status: 0,
-        current_match_id: -1,
-        num_matches: 10,
+        current_match_id: 0,
+        num_matches,
         owner: sender,
-        max_players: 5
+        max_players
     });
 }
 
@@ -230,7 +248,8 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
 
     let num_players: u32 = Player::iter().count() as u32;
     if num_players < ts.max_players {
-        Player::insert(Player { id: sender, points: 100, name});
+        Player::insert(Player { id: sender, points: 100, name: name.clone()});
+        TournamentPlayer::insert(TournamentPlayer { id: sender, points: 100, name});
         return;
     }
 
@@ -254,34 +273,19 @@ pub fn start_tournament(sender: Hash, timestamp: u64) {
 
     // Start the tournament!
     ts.status = 1;
-    ts.current_match_id = -1;
+    ts.current_match_id = 0;
     TournamentState::update_by_version(0, ts);
 
     // Call reset round to start the game
-    reset_match(timestamp);
+    start_match(timestamp, 0);
 }
 
 /// Called at the start of every round. This will automatically increase the current match id
 /// in the tournament state. If there are no matches remaining it will also end the tournament.
-pub fn reset_match(timestamp: u64) {
-    let mut ts = TournamentState::singleton();
-    let new_match_id = ts.current_match_id + 1;
-    if new_match_id as u32 >= ts.num_matches {
-        println!("We're done playing for now, thanks for playing!");
-        ts.status = 2;
-        TournamentState::update_by_version(0, ts);
-
-        // TODO: Important: Determine winner here!!
-        return;
-    }
-
-    // Update the current match ID
-    ts.current_match_id = new_match_id;
-    TournamentState::update_by_version(0, ts);
-
+pub fn start_match(timestamp: u64, new_match_id: u32) {
     // Insert new match metadata
     MatchState::insert(MatchState {
-        id: new_match_id as u32,
+        id: new_match_id,
         status: 0,
         skipped_first_round: false,
         is_last_round: false,
@@ -322,6 +326,72 @@ pub fn reset_match(timestamp: u64) {
     // This match is now started!
 }
 
+// Called at the end of every match to reset the match state
+fn end_match(mut current_match: MatchState) -> Option<u32> {
+    let mut ts = TournamentState::singleton();
+
+    current_match.status = 1;
+    MatchState::update_by_id(current_match.id, current_match);
+
+    // TODO: Assign some match points here to the winner of the match? Maybe wait here for a bit before next round?
+    // let mut most_points: Vec<Player> = Vec::<Player>::new();
+    // let winner_points = 0;
+    // for player in Player::iter() {
+    //     if player.points == winner_points {
+    //         most_points.push(player);
+    //     } else if player.points > winner_points {
+    //         most_points.clear();
+    //         most_points.push(player);
+    //     }
+    // }
+
+    // if most_points.len() == 1 {
+    //     println!("Player '{}' won match {} with {} points!", most_points[0].name, match_id, winner_points);
+    //     // TODO give them something for winning!
+    // } else if most_points.len() > 1 {
+    //     let mut players = most_points[0].name.to_string();
+    //     for player_name in most_points {
+    //         players.push_str(player_name.name.as_ref());
+    //     }
+    //     println!("Match {} resulted in a tie between these players: {}", match_id, players);
+
+    //     // TODO: What if there are multiple winners?
+    // } else {
+    //     println!("Nobody won match {}", match_id);
+    // }
+
+    // Clean up match state and set the match result info
+    for player in Player::iter() {
+        MatchResult::insert(MatchResult {
+            id: player.id,
+            points: player.points,
+            name: player.name.clone(),
+            match_id: ts.current_match_id,
+        });
+        Player::update_by_id(player.id, Player {
+            id: player.id,
+            points: 100,
+            name: player.name,
+        });
+    }
+
+    // Move to new match or determine winner
+    let new_match_id = ts.current_match_id + 1;
+    if new_match_id as u32 > ts.num_matches {
+        println!("We're done playing for now, thanks for playing!");
+        ts.status = 2;
+        TournamentState::update_by_version(0, ts);
+
+        return None;
+    }
+
+    // Update the current match ID
+    ts.current_match_id = new_match_id;
+    TournamentState::update_by_version(0, ts);
+
+    return Some(new_match_id);
+}
+
 #[spacetimedb(reducer, repeat = 1s)]
 pub fn run_auction(timestamp: u64, _delta_time: u64) {
     let Some(ts) = TournamentState::filter_by_version(0) else {
@@ -353,38 +423,9 @@ pub fn run_auction(timestamp: u64, _delta_time: u64) {
 
     // If this is the final round we will determine a round winner and reset the game
     if current_match.is_last_round {
-        let match_id = current_match.id;
-        current_match.status = 1;
-        MatchState::update_by_id(current_match.id, current_match);
-
-        // // TODO: Assign some match points here to the winner of the match? Maybe wait here for a bit before next round?
-        let mut most_points: Vec<Player> = Vec::<Player>::new();
-        let winner_points = 0;
-        for player in Player::iter() {
-            if player.points == winner_points {
-                most_points.push(player);
-            } else if player.points > winner_points {
-                most_points.clear();
-                most_points.push(player);
-            }
+        if let Some(new_match_id) = end_match(current_match) {
+            start_match(timestamp, new_match_id);
         }
-
-        if most_points.len() == 1 {
-            println!("Player '{}' won match {} with {} points!", most_points[0].name, match_id, winner_points);
-            // TODO give them something for winning!
-        } else if most_points.len() > 1 {
-            let mut players = most_points[0].name.to_string();
-            for player_name in most_points {
-                players.push_str(player_name.name.as_ref());
-            }
-            println!("Match {} resulted in a tie between these players: {}", match_id, players);
-
-            // TODO: What if there are multiple winners?
-        } else {
-            println!("Nobody won match {}", match_id);
-        }
-
-        reset_match(timestamp);
         return;
     }
 

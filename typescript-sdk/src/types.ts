@@ -64,3 +64,16 @@ export type RedeemedWord = {
     points: number,
     timestamp: number,
 };
+
+export type TournamentPlayer = {
+    id: string,
+    points: number,
+    name: string,
+}
+
+export type MatchResult = {
+    id: string,
+    points: number,
+    name: string,
+    match_id: number,
+}

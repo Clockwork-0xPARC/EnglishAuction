@@ -1,6 +1,6 @@
 import { SpacetimeDBClient, SpacetimeDBEvent } from './spacetimedb';
 export * from "./types";
-import { LetterTile, Player, PlayerTile, RedeemedWord, TileAuction, TournamentState, WinningBid } from './types';
+import { LetterTile, MatchResult, Player, PlayerTile, RedeemedWord, TileAuction, TournamentPlayer, TournamentState, WinningBid } from './types';
 export declare class EAClient {
     client: SpacetimeDBClient;
     constructor(host: string, name_or_address: string, credentials?: {
@@ -16,6 +16,7 @@ export declare class EAClient {
     onTransaction: (cb: (event: SpacetimeDBEvent) => void) => void;
     onTournamentStateUpdate: (cb: (ts: TournamentState) => void) => void;
     onReceiveTile: (cb: (tile: PlayerTile) => void) => void;
+    onTournamentPlayer: (cb: (player: TournamentPlayer) => void) => void;
     onTileAuction: (cb: (auction: TileAuction) => void) => void;
     onWinningBid: (cb: (winningBid: WinningBid) => void) => void;
     onPlayerJoined: (cb: (player: Player) => void) => void;
@@ -38,4 +39,6 @@ export declare class EAClient {
     getAuctions: () => TileAuction[];
     getWinningBids: () => WinningBid[];
     getRedeemedWords: () => RedeemedWord[];
+    getMatchResultMap: () => Map<number, MatchResult[]>;
+    getTournamentPlayers: () => TournamentPlayer[];
 }

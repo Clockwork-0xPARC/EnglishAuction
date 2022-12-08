@@ -81,6 +81,16 @@ class EAClient {
                 });
             });
         };
+        this.onTournamentPlayer = (cb) => {
+            const table = this.client.db.getOrCreateTable("TournamentPlayer");
+            table.onInsert((row) => {
+                cb({
+                    id: row[0],
+                    points: row[1],
+                    name: row[2],
+                });
+            });
+        };
         this.onTileAuction = (cb) => {
             const table = this.client.db.getOrCreateTable("TileAuction");
             table.onInsert((row) => {
@@ -267,6 +277,37 @@ class EAClient {
                 });
             }
             things.sort((a, b) => b.timestamp - a.timestamp);
+            return things;
+        };
+        this.getMatchResultMap = () => {
+            const table = this.client.db.getOrCreateTable("MatchResult");
+            const map = new Map();
+            for (const row of table.rows.values()) {
+                const matchResult = {
+                    id: row[0],
+                    points: row[1],
+                    name: row[2],
+                    match_id: row[3],
+                };
+                let list = map.get(matchResult.match_id);
+                if (!list) {
+                    list = [];
+                    map.set(matchResult.match_id, list);
+                }
+                list.push(matchResult);
+            }
+            return map;
+        };
+        this.getTournamentPlayers = () => {
+            const table = this.client.db.getOrCreateTable("TournamentPlayer");
+            const things = [];
+            for (const row of table.rows.values()) {
+                things.push({
+                    id: row[0],
+                    points: row[1],
+                    name: row[2],
+                });
+            }
             return things;
         };
         this.client = new spacetimedb_1.SpacetimeDBClient(host, name_or_address, credentials);
