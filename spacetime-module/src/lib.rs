@@ -249,7 +249,7 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
     let num_players: u32 = Player::iter().count() as u32;
     if num_players < ts.max_players {
         Player::insert(Player { id: sender, points: 100, name: name.clone()});
-        TournamentPlayer::insert(TournamentPlayer { id: sender, points: 100, name});
+        TournamentPlayer::insert(TournamentPlayer { id: sender, points: 0, name});
         return;
     }
 
@@ -373,6 +373,10 @@ fn end_match(mut current_match: MatchState) -> Option<u32> {
             points: 100,
             name: player.name,
         });
+    }
+
+    for auction in TileAuction::iter() {
+        TileAuction::delete_by_auction_index(auction.auction_index);
     }
 
     // Move to new match or determine winner
