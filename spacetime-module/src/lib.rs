@@ -112,6 +112,7 @@ pub struct TileAuction {
 #[spacetimedb(table)]
 struct PlayerBid {
     player_id: Hash,
+    #[unique]
     auction_index: u32,
     points: u32,
     timestamp: u64,
@@ -384,6 +385,11 @@ fn end_match(mut current_match: MatchState) -> Option<u32> {
     for auction in TileAuction::iter() {
         TileAuction::delete_by_auction_index(auction.auction_index);
     }
+   
+    // TODO: need a way to delete all things
+    for bid in PlayerBid::iter() {
+        PlayerBid::delete_by_auction_index(bid.auction_index);
+    }
 
     // Move to new match or determine winner
     let new_match_id = ts.current_match_id + 1;
@@ -543,12 +549,21 @@ pub fn make_bid(sender: Hash, timestamp: u64, auction_index: u32, points: u32) {
     let player = Player::filter_by_id(sender).unwrap();
 
     println!("{} bids for {}", player.name, points);
-    PlayerBid::insert(PlayerBid {
-        player_id: sender,
-        auction_index,
-        points,
-        timestamp,
-    });
+    if let Some(_) = PlayerBid::filter_by_auction_index(auction_index) {
+        PlayerBid::update_by_auction_index(auction_index, PlayerBid {
+            player_id: sender,
+            auction_index,
+            points,
+            timestamp,
+        });
+    } else {
+        PlayerBid::insert(PlayerBid {
+            player_id: sender,
+            auction_index,
+            points,
+            timestamp,
+        });
+    }
 }
 
 /// This is called by players to spend their letters to gain points which can then be used
