@@ -215,6 +215,13 @@ pub fn register_player(sender: Hash, _timestamp: u64, name: String) {
     let ts = TournamentState::singleton();
 
     for player in Player::iter() {
+        if player.id == sender {
+            println!("Player found.");
+            return;
+        }
+    }
+
+    for player in Player::iter() {
         if player.name.to_lowercase() == name.to_lowercase() {
             println!("Name already taken.");
             panic!();
