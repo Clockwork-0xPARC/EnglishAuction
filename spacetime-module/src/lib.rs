@@ -368,6 +368,12 @@ fn end_match(mut current_match: MatchState) -> Option<u32> {
             name: player.name.clone(),
             match_id: ts.current_match_id,
         });
+        let tp = TournamentPlayer::filter_by_id(player.id).unwrap();
+        TournamentPlayer::update_by_id(tp.id, TournamentPlayer {
+            id: tp.id,
+            points: tp.points + player.points,
+            name: tp.name,
+        });
         Player::update_by_id(player.id, Player {
             id: player.id,
             points: 100,
