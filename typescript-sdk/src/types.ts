@@ -54,7 +54,7 @@ export type PlayerBid = {
 export type WinningBid = {
     auction_index: number,
     player_name: string,
-    letter: number,
+    letter: string,
     points: number,
 };
 
