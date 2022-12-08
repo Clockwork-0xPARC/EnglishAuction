@@ -45,6 +45,15 @@ class EAClient {
             });
         };
         this.onRegistered = (cb) => {
+            var _a;
+            let identity = (_a = this.getCredentials()) === null || _a === void 0 ? void 0 : _a.identity;
+            if (identity) {
+                for (const player of this.getAllPlayers()) {
+                    if (player.id === identity) {
+                        cb(player);
+                    }
+                }
+            }
             this.onPlayerJoined(p => {
                 var _a;
                 if (p.id === ((_a = this.getCredentials()) === null || _a === void 0 ? void 0 : _a.identity)) {

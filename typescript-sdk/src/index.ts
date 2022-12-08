@@ -41,6 +41,14 @@ export class EAClient {
     }
 
     public onRegistered = (cb: (player: Player) => void) => {
+        let identity = this.getCredentials()?.identity;
+        if (identity) {
+            for (const player of this.getAllPlayers()) {
+                if (player.id === identity) {
+                    cb(player);
+                }
+            }
+        }
         this.onPlayerJoined(p => {
             if (p.id === this.getCredentials()?.identity) {
                 cb(p);

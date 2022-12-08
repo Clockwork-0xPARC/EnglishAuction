@@ -125,7 +125,7 @@ export class SpacetimeDBClient {
             this.identity = credentials.identity;
             this.token = credentials.token;
             headers = {
-                "Authorization": `Basic token:${Buffer.from(this.token).toString('base64')}`
+                "Authorization": `Basic ${Buffer.from("token:" + this.token).toString('base64')}`
             };
         }
         this.emitter = new EventEmitter();
@@ -142,7 +142,9 @@ export class SpacetimeDBClient {
         );
 
         this.db = new Database();
-        this.ws.onclose = (_event) => {};
+        this.ws.onclose = (event) => {
+            console.error("Closed: ", event);
+        };
         this.ws.onmessage = (message: any) => {
             const data = JSON.parse(message.data);
             if (data) {
