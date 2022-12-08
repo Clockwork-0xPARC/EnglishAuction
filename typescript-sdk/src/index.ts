@@ -315,8 +315,9 @@ export class EAClient {
         const table = this.client.db.getOrCreateTable("TournamentPlayer");
         const things = [];
         for (const row of table.rows.values()) {
+            const identity = Buffer.from(row[0]['data'], 'utf8').toString('hex');
             things.push({
-                id: row[0],
+                id: identity,
                 points: row[1],
                 name: row[2],
             });
