@@ -119,9 +119,9 @@ const App = () => {
                         <Scoreboard />
                         <RedeemedWordList />
                     </div>
-                    <div className="flex flex-col w-2/4 m-auto items-center justify-between h-100">
+                    <div className="flex flex-col w-2/4 m-auto items-center justify-between h-full">
                         <MatchScoreboard />
-                        <div className="flex flex-col w-2/4 m-auto items-center justify-center overflow-scroll">
+                        <div className="flex flex-col w-2/4 m-auto items-center overflow-scroll">
                             {auctions.length > 0 &&
                                 auctions.slice(0, 10).map((x, index) => (
                                     <div
